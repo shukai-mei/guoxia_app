@@ -1,0 +1,45 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica,
+    'Segoe UI', Arial, Roboto, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft Yahei', sans-serif;
+  background: #f7f8fa;
+  color: #323233;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  min-height: 100%;
+}
+
+.page {
+  padding: 12px 12px calc(20px + env(safe-area-inset-bottom));
+}
+
+.page-content {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.van-nav-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.section-title {
+  margin: 16px 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #646566;
+}
