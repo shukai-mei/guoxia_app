@@ -1,12 +1,32 @@
-export type MediaType = 'SURROUNDING' | 'VIDEO' | 'GUIDE'
+export type MediaType = 'SURROUNDING' | 'VIDEO'
 export type PropertyStatus = 'AVAILABLE' | 'OFF_SHELF'
 export type AppointmentStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED'
+export type ConfirmChannel = 'MANUAL' | 'AUTO'
+export type SmsStatus = 'SENT' | 'FAILED'
 
 export interface MediaItem {
   type: MediaType
   key: string
   url: string
   sortOrder: number
+}
+
+export interface BuildingMediaItem {
+  key: string
+  url: string
+  sortOrder: number
+}
+
+export interface BuildingInfo {
+  id: number
+  name: string
+  address: string
+  hasElevator: boolean | null
+  totalFloors: number | null
+  elevatorRatio: string | null
+  deliveryFacilities: string | null
+  livingExperience: string | null
+  media: BuildingMediaItem[]
 }
 
 export interface Property {
@@ -18,8 +38,51 @@ export interface Property {
   rent: number
   description: string | null
   contact: string
+  buildingId: number | null
+  building: BuildingInfo | null
   status: PropertyStatus
   media: MediaItem[]
+}
+
+export interface Building {
+  id: number
+  name: string
+  address: string
+  hasElevator: boolean | null
+  totalFloors: number | null
+  elevatorRatio: string | null
+  deliveryFacilities: string | null
+  livingExperience: string | null
+  slotStartTime: string
+  slotEndTime: string
+  slotDurationMinutes: number
+  media: BuildingMediaItem[]
+}
+
+export interface Slot {
+  start: string
+  end: string
+  available: boolean
+}
+
+export interface SlotList {
+  propertyId: number
+  buildingId: number | null
+  buildingName: string | null
+  supported: boolean
+  slots: Slot[]
+}
+
+export interface DailyPassword {
+  propertyId: number
+  date: string
+  passwordSet: boolean
+}
+
+export interface WechatConfig {
+  contact: string | null
+  qrObjectKey: string | null
+  qrUrl: string | null
 }
 
 export interface Appointment {
@@ -28,7 +91,12 @@ export interface Appointment {
   propertyTitle: string
   tenantName: string
   phone: string
-  preferredTime: string
+  slotStart: string
+  slotEnd: string
+  confirmChannel: ConfirmChannel | null
+  bookingSmsStatus: SmsStatus | null
+  passwordSmsStatus: SmsStatus | null
+  passwordSet: boolean
   status: AppointmentStatus
   rejectReason: string | null
   createdAt: string
@@ -45,6 +113,11 @@ export interface MediaInput {
   sortOrder: number
 }
 
+export interface BuildingMediaInput {
+  key: string
+  sortOrder: number
+}
+
 export interface PropertyInput {
   title: string
   location: string
@@ -53,13 +126,40 @@ export interface PropertyInput {
   rent: number
   description?: string
   contact: string
+  buildingId: number
   media: MediaInput[]
+}
+
+export interface BuildingInput {
+  name: string
+  address: string
+  hasElevator?: boolean
+  totalFloors?: number
+  elevatorRatio?: string
+  deliveryFacilities?: string
+  livingExperience?: string
+  slotStartTime: string
+  slotEndTime: string
+  slotDurationMinutes: number
+  media: BuildingMediaInput[]
 }
 
 export interface AppointmentInput {
   name: string
   phone: string
-  preferredTime: string
+  date: string
+  slotStart: string
+  slotEnd: string
+}
+
+export interface DailyPasswordInput {
+  date: string
+  password: string
+}
+
+export interface WechatConfigInput {
+  contact?: string
+  qrObjectKey?: string
 }
 
 export interface PropertyQuery {

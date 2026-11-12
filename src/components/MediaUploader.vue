@@ -18,8 +18,9 @@ const props = withDefaults(
     type: MediaType
     modelValue?: UploadedMedia[]
     max?: number
+    label?: string
   }>(),
-  { modelValue: () => [], max: Infinity }
+  { modelValue: () => [], max: Infinity, label: '' }
 )
 
 const emit = defineEmits<{
@@ -28,15 +29,14 @@ const emit = defineEmits<{
 
 const TYPE_LABEL: Record<MediaType, string> = {
   SURROUNDING: '周边图',
-  VIDEO: '内屋视频',
-  GUIDE: '找房指引图'
+  VIDEO: '内屋视频'
 }
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
 
 const items = computed(() => props.modelValue)
-const label = computed(() => TYPE_LABEL[props.type])
+const label = computed(() => props.label || TYPE_LABEL[props.type])
 const accept = computed(() =>
   props.type === 'VIDEO'
     ? 'video/mp4,.mp4'

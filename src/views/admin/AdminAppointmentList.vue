@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { showSuccessToast, showToast } from 'vant'
-import { adminListAppointments, confirmAppointment, rejectAppointment } from '../../api'
+import {
+  adminListAppointments,
+  confirmAppointment,
+  rejectAppointment,
+  resendAppointmentSms
+} from '../../api'
 import { ApiError } from '../../api/http'
 import type { Appointment } from '../../api/types'
 import { errorMessageOf } from '../../utils/error'
-import { formatDateTime } from '../../utils/format'
+import { formatDateTime, formatTime } from '../../utils/format'
 
 const STATUS_TEXT: Record<string, string> = {
   PENDING: '待处理',
@@ -19,6 +24,11 @@ const STATUS_TYPE: Record<string, 'warning' | 'success' | 'default'> = {
   REJECTED: 'default'
 }
 
+const CHANNEL_TEXT: Record<string, string> = {
+  MANUAL: '人工通过',
+  AUTO: '自动通过'
+}
+
 const loading = ref(false)
 const loaded = ref(false)
 const errorText = ref('')
@@ -27,6 +37,7 @@ const appointments = ref<Appointment[]>([])
 const rejecting = ref<Appointment | null>(null)
 const rejectReason = ref('')
 const rejectSubmitting = ref(false)
+const resendingId = ref<number | null>(null)
 
 const rejectPopupShow = computed({
   get: () => rejecting.value !== null,
@@ -36,6 +47,30 @@ const rejectPopupShow = computed({
     }
   }
 })
+
+function smsText(status: string | null): string {
+  if (status === 'SENT') {
+    return '已发送'
+  }
+  if (status === 'FAILED') {
+    return '发送失败'
+  }
+  return '未发送'
+}
+
+function smsType(status: string | null): 'success' | 'danger' | 'default' {
+  if (status === 'SENT') {
+    return 'success'
+  }
+  if (status === 'FAILED') {
+    return 'danger'
+  }
+  return 'default'
+}
+
+function slotText(item: Appointment): string {
+  return `${formatDateTime(item.slotStart)} ~ ${formatTime(item.slotEnd)}`
+}
 
 async function load() {
   loading.value = true
@@ -94,6 +129,19 @@ async function onRejectSubmit() {
   }
 }
 
+async function onResend(item: Appointment) {
+  resendingId.value = item.id
+  try {
+    await resendAppointmentSms(item.id)
+    showSuccessToast('已重发')
+    load()
+  } catch (error) {
+    showToast(errorMessageOf(error))
+  } finally {
+    resendingId.value = null
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -117,13 +165,44 @@ onMounted(load)
           <div v-for="item in appointments" :key="item.id" class="appointment-card">
             <div class="appointment-header">
               <span class="appointment-name">{{ item.tenantName }}</span>
-              <van-tag :type="STATUS_TYPE[item.status] ?? 'default'">
-                {{ STATUS_TEXT[item.status] ?? item.status }}
-              </van-tag>
+              <div class="appointment-tags">
+                <van-tag v-if="item.status === 'CONFIRMED' && item.confirmChannel" plain type="primary">
+                  {{ CHANNEL_TEXT[item.confirmChannel] ?? item.confirmChannel }}
+                </van-tag>
+                <van-tag :type="STATUS_TYPE[item.status] ?? 'default'">
+                  {{ STATUS_TEXT[item.status] ?? item.status }}
+                </van-tag>
+              </div>
             </div>
             <div class="appointment-line">手机号：{{ item.phone }}</div>
-            <div class="appointment-line">期望看房：{{ formatDateTime(item.preferredTime) }}</div>
+            <div class="appointment-line">预约时段：{{ slotText(item) }}</div>
             <div class="appointment-line">关联房源：{{ item.propertyTitle }}</div>
+            <div class="appointment-line appointment-sms">
+              预约短信：
+              <van-tag :type="smsType(item.bookingSmsStatus)" plain>
+                {{ smsText(item.bookingSmsStatus) }}
+              </van-tag>
+              密码短信：
+              <van-tag :type="smsType(item.passwordSmsStatus)" plain>
+                {{ smsText(item.passwordSmsStatus) }}
+              </van-tag>
+              <van-button
+                v-if="item.bookingSmsStatus === 'FAILED' || item.passwordSmsStatus === 'FAILED'"
+                size="mini"
+                plain
+                type="primary"
+                :loading="resendingId === item.id"
+                @click="onResend(item)"
+              >
+                重发
+              </van-button>
+            </div>
+            <div
+              v-if="item.status === 'PENDING' && !item.passwordSet"
+              class="appointment-line appointment-password-warn"
+            >
+              当日密码未设置，确认前请先在「每日密码」中设置
+            </div>
             <div v-if="item.rejectReason" class="appointment-reject">
               拒绝原因：{{ item.rejectReason }}
             </div>
@@ -198,10 +277,27 @@ onMounted(load)
   font-weight: 600;
 }
 
+.appointment-tags {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .appointment-line {
   margin-top: 6px;
   font-size: 13px;
   color: #646566;
+}
+
+.appointment-sms {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.appointment-password-warn {
+  color: #ed6a0c;
 }
 
 .appointment-reject {

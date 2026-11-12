@@ -2,9 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showSuccessToast, showToast } from 'vant'
-import { createProperty, getProperty, updateProperty } from '../../api'
+import { adminListBuildings, createProperty, getProperty, updateProperty } from '../../api'
 import { ApiError } from '../../api/http'
-import type { MediaInput, MediaType, PropertyInput } from '../../api/types'
+import type { Building, MediaInput, MediaType, PropertyInput } from '../../api/types'
 import MediaUploader, { type UploadedMedia } from '../../components/MediaUploader.vue'
 import { errorMessageOf } from '../../utils/error'
 
@@ -25,7 +25,10 @@ const form = ref({
 })
 const surroundings = ref<UploadedMedia[]>([])
 const videos = ref<UploadedMedia[]>([])
-const guides = ref<UploadedMedia[]>([])
+
+const buildings = ref<Building[]>([])
+const buildingId = ref<number | null>(null)
+const buildingPickerShow = ref(false)
 
 const loading = ref(isEdit.value)
 const loadError = ref('')
@@ -38,24 +41,32 @@ function toUploaded(type: MediaType, items: UploadedMedia[]): UploadedMedia[] {
     .map((m) => ({ type, key: m.key, url: m.url, sortOrder: m.sortOrder }))
 }
 
+const buildingName = computed(
+  () => buildings.value.find((b) => b.id === buildingId.value)?.name ?? ''
+)
+const buildingOptions = computed(() =>
+  buildings.value.map((b) => ({ ...b, className: 'building-column' }))
+)
+
 onMounted(async () => {
-  if (!isEdit.value) {
-    return
-  }
   try {
-    const property = await getProperty(propertyId as string)
-    form.value = {
-      title: property.title,
-      location: property.location,
-      layout: property.layout,
-      area: String(property.area),
-      rent: String(property.rent),
-      contact: property.contact,
-      description: property.description ?? ''
+    const list = await adminListBuildings()
+    buildings.value = list
+    if (isEdit.value) {
+      const property = await getProperty(propertyId as string)
+      form.value = {
+        title: property.title,
+        location: property.location,
+        layout: property.layout,
+        area: String(property.area),
+        rent: String(property.rent),
+        contact: property.contact,
+        description: property.description ?? ''
+      }
+      buildingId.value = property.buildingId
+      surroundings.value = toUploaded('SURROUNDING', property.media as UploadedMedia[])
+      videos.value = toUploaded('VIDEO', property.media as UploadedMedia[])
     }
-    surroundings.value = toUploaded('SURROUNDING', property.media as UploadedMedia[])
-    videos.value = toUploaded('VIDEO', property.media as UploadedMedia[])
-    guides.value = toUploaded('GUIDE', property.media as UploadedMedia[])
   } catch (error) {
     loadError.value =
       error instanceof ApiError && error.code === 404
@@ -88,14 +99,16 @@ function validate(): string | null {
   if (!f.contact.trim()) {
     return '请填写联系方式'
   }
+  if (buildingId.value === null) {
+    return '请选择所属楼栋'
+  }
   return null
 }
 
 function buildMedia(): MediaInput[] {
   const groups: Record<MediaType, UploadedMedia[]> = {
     SURROUNDING: surroundings.value,
-    VIDEO: videos.value,
-    GUIDE: guides.value
+    VIDEO: videos.value
   }
   const result: MediaInput[] = []
   for (const type of Object.keys(groups) as MediaType[]) {
@@ -104,6 +117,11 @@ function buildMedia(): MediaInput[] {
     })
   }
   return result
+}
+
+function onBuildingConfirm({ selectedValues }: { selectedValues: Array<string | number> }) {
+  buildingId.value = (selectedValues[0] as number | null) ?? null
+  buildingPickerShow.value = false
 }
 
 async function onSubmit() {
@@ -119,6 +137,7 @@ async function onSubmit() {
     area: Number(form.value.area),
     rent: Number(form.value.rent),
     contact: form.value.contact.trim(),
+    buildingId: buildingId.value as number,
     media: buildMedia()
   }
   if (form.value.description.trim()) {
@@ -178,6 +197,15 @@ function goBack() {
                 :rules="[{ required: true, message: '请填写位置' }]"
               />
               <van-field
+                :model-value="buildingName"
+                readonly
+                is-link
+                label="所属楼栋"
+                placeholder="请选择所属楼栋"
+                :rules="[{ required: true, message: '请选择所属楼栋' }]"
+                @click="buildingPickerShow = true"
+              />
+              <van-field
                 v-model="form.layout"
                 label="户型"
                 placeholder="如：两室一厅"
@@ -217,8 +245,6 @@ function goBack() {
               <MediaUploader v-model="surroundings" type="SURROUNDING" />
               <div class="uploader-gap"></div>
               <MediaUploader v-model="videos" type="VIDEO" :max="1" />
-              <div class="uploader-gap"></div>
-              <MediaUploader v-model="guides" type="GUIDE" />
             </div>
 
             <div class="submit-wrap">
@@ -230,6 +256,20 @@ function goBack() {
         </template>
       </div>
     </div>
+
+    <van-popup v-model:show="buildingPickerShow" position="bottom" round>
+      <van-picker
+        title="选择所属楼栋"
+        :columns="buildingOptions"
+        :columns-field-names="{ value: 'id' }"
+        @confirm="onBuildingConfirm"
+        @cancel="buildingPickerShow = false"
+      >
+        <template #option="option">
+          {{ option.name }}
+        </template>
+      </van-picker>
+    </van-popup>
   </div>
 </template>
 
@@ -253,5 +293,9 @@ function goBack() {
 
 .submit-wrap {
   padding: 16px;
+}
+
+:deep(.building-column) {
+  text-align: left;
 }
 </style>

@@ -2,11 +2,18 @@ import { http } from './http'
 import type {
   Appointment,
   AppointmentInput,
+  Building,
+  BuildingInput,
+  DailyPassword,
+  DailyPasswordInput,
   Property,
   PropertyInput,
   PropertyQuery,
   PropertyStatus,
-  UploadResult
+  SlotList,
+  UploadResult,
+  WechatConfig,
+  WechatConfigInput
 } from './types'
 
 export function listProperties(params: PropertyQuery = {}): Promise<Property[]> {
@@ -17,8 +24,21 @@ export function getProperty(id: number | string): Promise<Property> {
   return http.get(`/api/properties/${id}`).then((r) => r.data as Property)
 }
 
-export function submitAppointment(propertyId: number | string, input: AppointmentInput): Promise<void> {
-  return http.post(`/api/properties/${propertyId}/appointments`, input).then(() => undefined)
+export function getSlots(propertyId: number | string, date: string): Promise<SlotList> {
+  return http
+    .get(`/api/properties/${propertyId}/slots`, { params: { date } })
+    .then((r) => r.data as SlotList)
+}
+
+export function submitAppointment(
+  propertyId: number | string,
+  input: AppointmentInput
+): Promise<Appointment> {
+  return http.post(`/api/properties/${propertyId}/appointments`, input).then((r) => r.data as Appointment)
+}
+
+export function getWechatConfig(): Promise<WechatConfig> {
+  return http.get('/api/config/wechat').then((r) => r.data as WechatConfig)
 }
 
 export function adminListProperties(): Promise<Property[]> {
@@ -37,10 +57,45 @@ export function updatePropertyStatus(id: number | string, status: PropertyStatus
   return http.put(`/admin/api/properties/${id}/status`, { status }).then(() => undefined)
 }
 
+export function getDailyPassword(propertyId: number | string, date: string): Promise<DailyPassword> {
+  return http
+    .get(`/admin/api/properties/${propertyId}/daily-passwords`, { params: { date } })
+    .then((r) => r.data as DailyPassword)
+}
+
+export function upsertDailyPassword(
+  propertyId: number | string,
+  input: DailyPasswordInput
+): Promise<DailyPassword> {
+  return http
+    .post(`/admin/api/properties/${propertyId}/daily-passwords`, input)
+    .then((r) => r.data as DailyPassword)
+}
+
 export function uploadFile(file: File): Promise<UploadResult> {
   const formData = new FormData()
   formData.append('file', file)
   return http.post('/admin/api/files', formData).then((r) => r.data as UploadResult)
+}
+
+export function adminListBuildings(): Promise<Building[]> {
+  return http.get('/admin/api/buildings').then((r) => r.data as Building[])
+}
+
+export function adminGetBuilding(id: number | string): Promise<Building> {
+  return http.get(`/admin/api/buildings/${id}`).then((r) => r.data as Building)
+}
+
+export function adminCreateBuilding(input: BuildingInput): Promise<Building> {
+  return http.post('/admin/api/buildings', input).then((r) => r.data as Building)
+}
+
+export function adminUpdateBuilding(id: number | string, input: BuildingInput): Promise<Building> {
+  return http.put(`/admin/api/buildings/${id}`, input).then((r) => r.data as Building)
+}
+
+export function adminDeleteBuilding(id: number | string): Promise<void> {
+  return http.delete(`/admin/api/buildings/${id}`).then(() => undefined)
 }
 
 export function adminListAppointments(): Promise<Appointment[]> {
@@ -53,4 +108,16 @@ export function confirmAppointment(id: number | string): Promise<void> {
 
 export function rejectAppointment(id: number | string, reason: string): Promise<void> {
   return http.put(`/admin/api/appointments/${id}/reject`, { reason }).then(() => undefined)
+}
+
+export function resendAppointmentSms(id: number | string): Promise<Appointment> {
+  return http.post(`/admin/api/appointments/${id}/resend-sms`).then((r) => r.data as Appointment)
+}
+
+export function adminGetWechatConfig(): Promise<WechatConfig> {
+  return http.get('/admin/api/config/wechat').then((r) => r.data as WechatConfig)
+}
+
+export function adminUpdateWechatConfig(input: WechatConfigInput): Promise<WechatConfig> {
+  return http.put('/admin/api/config/wechat', input).then((r) => r.data as WechatConfig)
 }
