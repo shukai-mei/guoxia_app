@@ -15,17 +15,19 @@ vi.mock('vant', async (importOriginal) => {
 vi.mock('../../api', () => ({
   getProperty: vi.fn(),
   getSlots: vi.fn(),
-  submitAppointment: vi.fn()
+  submitAppointment: vi.fn(),
+  sendVerificationCode: vi.fn()
 }))
 
 import { showSuccessToast, showToast } from 'vant'
-import { getProperty, getSlots, submitAppointment } from '../../api'
+import { getProperty, getSlots, sendVerificationCode, submitAppointment } from '../../api'
 import { ApiError } from '../../api/http'
 import type { BuildingInfo, Property } from '../../api/types'
 
 const mockedGetProperty = vi.mocked(getProperty)
 const mockedGetSlots = vi.mocked(getSlots)
 const mockedSubmitAppointment = vi.mocked(submitAppointment)
+const mockedSendVerificationCode = vi.mocked(sendVerificationCode)
 
 function propertyWithBuilding(building: BuildingInfo | null): Property {
   return {
@@ -138,12 +140,14 @@ describe('PropertyDetail', () => {
     await flushPromises()
     await wrapper.find('input[name="name"]').setValue('张三')
     await wrapper.find('input[name="phone"]').setValue('13800138000')
+    await wrapper.find('input[name="code"]').setValue('123456')
     await wrapper.find('.slot-chip').trigger('click')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     expect(mockedSubmitAppointment).toHaveBeenCalledWith('5', {
       name: '张三',
       phone: '13800138000',
+      code: '123456',
       date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       slotStart: '10:00',
       slotEnd: '12:00'
@@ -171,10 +175,132 @@ describe('PropertyDetail', () => {
     expect(mockedGetSlots).toHaveBeenCalledTimes(1)
     await wrapper.find('input[name="name"]').setValue('张三')
     await wrapper.find('input[name="phone"]').setValue('13800138000')
+    await wrapper.find('input[name="code"]').setValue('123456')
     await wrapper.find('.slot-chip').trigger('click')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     expect(showToast).toHaveBeenCalledWith('该时段已被预约')
     expect(mockedGetSlots).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not send code for invalid phone', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    await wrapper.find('input[name="phone"]').setValue('123')
+    await wrapper.find('.send-code-btn').trigger('click')
+    await flushPromises()
+    expect(mockedSendVerificationCode).not.toHaveBeenCalled()
+    expect(showToast).toHaveBeenCalledWith('请输入有效的手机号')
+  })
+
+  it('starts 60s countdown on successful code send and restores after it ends', async () => {
+    vi.useFakeTimers()
+    try {
+      mockedGetProperty.mockResolvedValue(
+        propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+      )
+      mockedSendVerificationCode.mockResolvedValue(undefined)
+      const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+      await flushPromises()
+      await wrapper.find('input[name="phone"]').setValue('13800138000')
+      await flushPromises()
+      await wrapper.find('.send-code-btn').trigger('click')
+      await flushPromises()
+      expect(mockedSendVerificationCode).toHaveBeenCalledWith('13800138000')
+      expect(showToast).toHaveBeenCalledWith('验证码已发送')
+      const button = wrapper.find('.send-code-btn')
+      expect(button.text()).toContain('重新获取(60s)')
+      expect(button.attributes('disabled')).toBeDefined()
+
+      await vi.advanceTimersByTimeAsync(60_000)
+      await flushPromises()
+      expect(wrapper.find('.send-code-btn').text()).toContain('获取验证码')
+      expect(wrapper.find('.send-code-btn').attributes('disabled')).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps countdown idle when code send fails', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    mockedSendVerificationCode.mockRejectedValue(new ApiError(500, '短信发送失败，请稍后重试'))
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    await wrapper.find('input[name="phone"]').setValue('13800138000')
+    await flushPromises()
+    await wrapper.find('.send-code-btn').trigger('click')
+    await flushPromises()
+    expect(showToast).toHaveBeenCalledWith('短信发送失败，请稍后重试')
+    const button = wrapper.find('.send-code-btn')
+    expect(button.text()).toContain('获取验证码')
+    expect(button.attributes('disabled')).toBeUndefined()
+  })
+
+  it('blocks submit when code is not 6 digits', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    mockedGetSlots.mockResolvedValue({
+      propertyId: 5,
+      buildingId: 3,
+      buildingName: 'A栋',
+      supported: true,
+      slots: [{ start: '10:00', end: '12:00', available: true }]
+    })
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    await wrapper.find('input[name="name"]').setValue('张三')
+    await wrapper.find('input[name="phone"]').setValue('13800138000')
+    await wrapper.find('input[name="code"]').setValue('12345')
+    await wrapper.find('.slot-chip').trigger('click')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(showToast).toHaveBeenCalledWith('请输入 6 位验证码')
+    expect(mockedSubmitAppointment).not.toHaveBeenCalled()
+  })
+
+  it('shows 400 code error, keeps form values and does not refresh slots', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    mockedGetSlots.mockResolvedValue({
+      propertyId: 5,
+      buildingId: 3,
+      buildingName: 'A栋',
+      supported: true,
+      slots: [{ start: '10:00', end: '12:00', available: true }]
+    })
+    mockedSubmitAppointment.mockRejectedValue(new ApiError(400, '验证码错误或已过期'))
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    expect(mockedGetSlots).toHaveBeenCalledTimes(1)
+    await wrapper.find('input[name="name"]').setValue('张三')
+    await wrapper.find('input[name="phone"]').setValue('13800138000')
+    await wrapper.find('input[name="code"]').setValue('654321')
+    await wrapper.find('.slot-chip').trigger('click')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(showToast).toHaveBeenCalledWith('验证码错误或已过期')
+    expect(mockedGetSlots).toHaveBeenCalledTimes(1)
+    expect((wrapper.find('input[name="name"]').element as HTMLInputElement).value).toBe('张三')
+    expect((wrapper.find('input[name="code"]').element as HTMLInputElement).value).toBe('654321')
+  })
+
+  it('clears code when phone changes', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    await wrapper.find('input[name="phone"]').setValue('13800138000')
+    await wrapper.find('input[name="code"]').setValue('123456')
+    expect((wrapper.find('input[name="code"]').element as HTMLInputElement).value).toBe('123456')
+    await wrapper.find('input[name="phone"]').setValue('13800138001')
+    expect((wrapper.find('input[name="code"]').element as HTMLInputElement).value).toBe('')
   })
 })

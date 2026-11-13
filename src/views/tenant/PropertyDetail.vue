@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showImagePreview, showSuccessToast, showToast } from 'vant'
-import { getProperty, getSlots, submitAppointment } from '../../api'
+import { getProperty, getSlots, sendVerificationCode, submitAppointment } from '../../api'
 import { ApiError } from '../../api/http'
 import type { MediaItem, Property, Slot } from '../../api/types'
 import { errorMessageOf } from '../../utils/error'
@@ -19,7 +19,10 @@ const offShelf = ref(false)
 const errorText = ref('')
 const property = ref<Property | null>(null)
 
-const appointment = ref({ name: '', phone: '' })
+const appointment = ref({ name: '', phone: '', code: '' })
+const codeSending = ref(false)
+const codeCountdown = ref(0)
+let codeTimer: ReturnType<typeof setInterval> | undefined
 const datePickerShow = ref(false)
 const pickedDate = ref<string[]>([])
 const selectedDate = ref('')
@@ -150,6 +153,43 @@ function selectSlot(slot: Slot) {
   selectedSlot.value = slot
 }
 
+async function onSendCode() {
+  if (!isValidPhone(appointment.value.phone)) {
+    showToast('请输入有效的手机号')
+    return
+  }
+  codeSending.value = true
+  try {
+    await sendVerificationCode(appointment.value.phone)
+    showToast('验证码已发送')
+    codeCountdown.value = 60
+    codeTimer = setInterval(() => {
+      codeCountdown.value -= 1
+      if (codeCountdown.value <= 0) {
+        clearInterval(codeTimer)
+        codeTimer = undefined
+      }
+    }, 1000)
+  } catch (error) {
+    showToast(errorMessageOf(error))
+  } finally {
+    codeSending.value = false
+  }
+}
+
+watch(
+  () => appointment.value.phone,
+  () => {
+    appointment.value.code = ''
+  }
+)
+
+onUnmounted(() => {
+  if (codeTimer !== undefined) {
+    clearInterval(codeTimer)
+  }
+})
+
 async function onSubmit() {
   if (!appointment.value.name.trim()) {
     showToast('请填写姓名')
@@ -157,6 +197,10 @@ async function onSubmit() {
   }
   if (!isValidPhone(appointment.value.phone)) {
     showToast('请输入有效的手机号')
+    return
+  }
+  if (!/^\d{6}$/.test(appointment.value.code)) {
+    showToast('请输入 6 位验证码')
     return
   }
   if (!selectedDate.value) {
@@ -172,6 +216,7 @@ async function onSubmit() {
     const result = await submitAppointment(propertyId, {
       name: appointment.value.name.trim(),
       phone: appointment.value.phone,
+      code: appointment.value.code,
       date: selectedDate.value,
       slotStart: selectedSlot.value.start,
       slotEnd: selectedSlot.value.end
@@ -326,6 +371,29 @@ onMounted(async () => {
                     label="手机号"
                     placeholder="请输入 11 位手机号"
                     :rules="[{ required: true, message: '请填写手机号' }]"
+                  >
+                    <template #button>
+                      <van-button
+                        class="send-code-btn"
+                        size="small"
+                        type="primary"
+                        plain
+                        :loading="codeSending"
+                        :disabled="codeCountdown > 0"
+                        @click="onSendCode"
+                      >
+                        {{ codeCountdown > 0 ? `重新获取(${codeCountdown}s)` : '获取验证码' }}
+                      </van-button>
+                    </template>
+                  </van-field>
+                  <van-field
+                    v-model="appointment.code"
+                    name="code"
+                    type="tel"
+                    maxlength="6"
+                    label="验证码"
+                    placeholder="请输入 6 位验证码"
+                    :rules="[{ required: true, message: '请填写验证码' }]"
                   />
                   <van-field
                     :model-value="selectedDate"

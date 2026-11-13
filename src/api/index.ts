@@ -37,6 +37,10 @@ export function submitAppointment(
   return http.post(`/api/properties/${propertyId}/appointments`, input).then((r) => r.data as Appointment)
 }
 
+export function sendVerificationCode(phone: string): Promise<void> {
+  return http.post('/api/sms/verification-codes', { phone }).then(() => undefined)
+}
+
 export function getWechatConfig(): Promise<WechatConfig> {
   return http.get('/api/config/wechat').then((r) => r.data as WechatConfig)
 }

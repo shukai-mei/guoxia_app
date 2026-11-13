@@ -19,6 +19,7 @@ import {
   listProperties,
   rejectAppointment,
   resendAppointmentSms,
+  sendVerificationCode,
   submitAppointment,
   updateProperty,
   updatePropertyStatus,
@@ -71,6 +72,7 @@ describe('tenant api', () => {
     const result = await submitAppointment(5, {
       name: '张三',
       phone: '13800138000',
+      code: '123456',
       date: '2026-11-15',
       slotStart: '10:00',
       slotEnd: '12:00'
@@ -81,6 +83,7 @@ describe('tenant api', () => {
     expect(JSON.parse(request!.data)).toEqual({
       name: '张三',
       phone: '13800138000',
+      code: '123456',
       date: '2026-11-15',
       slotStart: '10:00',
       slotEnd: '12:00'
@@ -93,11 +96,28 @@ describe('tenant api', () => {
       submitAppointment(5, {
         name: '张三',
         phone: '13800138000',
+        code: '123456',
         date: '2026-11-15',
         slotStart: '10:00',
         slotEnd: '12:00'
       })
     ).rejects.toMatchObject({ code: 409, message: '该时段已被预约' })
+  })
+
+  it('sendVerificationCode POST /api/sms/verification-codes with phone', async () => {
+    mock.onPost('/api/sms/verification-codes').reply(...ok(null))
+    await sendVerificationCode('13800138000')
+    const request = mock.history.post.find((r) => r.url === '/api/sms/verification-codes')
+    expect(request).toBeDefined()
+    expect(JSON.parse(request!.data)).toEqual({ phone: '13800138000' })
+  })
+
+  it('sendVerificationCode surfaces rate limit error envelope as ApiError', async () => {
+    mock.onPost('/api/sms/verification-codes').reply(...fail(400, '发送过于频繁，请稍后再试'))
+    await expect(sendVerificationCode('13800138000')).rejects.toMatchObject({
+      code: 400,
+      message: '发送过于频繁，请稍后再试'
+    })
   })
 
   it('getWechatConfig GET /api/config/wechat', async () => {

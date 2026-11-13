@@ -62,7 +62,7 @@ onMounted(load)
 
 <template>
   <div>
-    <van-nav-bar title="果下租房" />
+    <van-nav-bar title="轻亭看房" />
 
     <div class="filter-area">
       <van-search

@@ -147,6 +147,7 @@ export interface BuildingInput {
 export interface AppointmentInput {
   name: string
   phone: string
+  code: string
   date: string
   slotStart: string
   slotEnd: string
