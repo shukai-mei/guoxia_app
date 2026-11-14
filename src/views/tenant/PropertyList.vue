@@ -57,12 +57,23 @@ function openDetail(property: Property) {
   router.push(`/properties/${property.id}`)
 }
 
+function goMyAppointments() {
+  router.push('/my-appointments')
+}
+
 onMounted(load)
 </script>
 
 <template>
   <div>
     <van-nav-bar title="轻亭看房" />
+
+    <div class="my-entry" @click="goMyAppointments">
+      <div class="my-entry-card">
+        <div class="my-entry-title">我的预约</div>
+        <div class="my-entry-sub">看房时段 · 开门密码 · 门禁开门</div>
+      </div>
+    </div>
 
     <div class="filter-area">
       <van-search
@@ -72,9 +83,8 @@ onMounted(load)
         @clear="load"
       />
       <div class="rent-filter">
-        <van-field v-model="rentMin" type="digit" placeholder="最低租金（元）" class="rent-field" />
-        <span class="rent-sep">-</span>
-        <van-field v-model="rentMax" type="digit" placeholder="最高租金（元）" class="rent-field" />
+        <van-field v-model="rentMin" type="digit" placeholder="¥ 最低" class="rent-field" />
+        <van-field v-model="rentMax" type="digit" placeholder="¥ 最高" class="rent-field" />
         <van-button size="small" type="primary" class="filter-btn" @click="load">筛选</van-button>
         <van-button size="small" plain class="filter-btn" @click="clearFilter">清除</van-button>
       </div>
@@ -82,7 +92,7 @@ onMounted(load)
 
     <div class="page">
       <div class="page-content">
-        <van-loading v-if="loading && !loaded" class="state-block" color="#1989fa">
+        <van-loading v-if="loading && !loaded" class="state-block">
           加载中...
         </van-loading>
 
@@ -106,9 +116,10 @@ onMounted(load)
               alt="房源图片"
             />
             <div class="property-body">
-              <div class="property-title">{{ property.title }}</div>
-              <div class="property-desc">
-                {{ property.location }} · {{ property.layout }} · {{ property.area }}㎡
+              <div>
+                <div class="property-title">{{ property.title }}</div>
+                <div class="property-location">{{ property.location }}</div>
+                <div class="property-meta">{{ property.layout }} · {{ property.area }}㎡</div>
               </div>
               <div class="property-rent">
                 <span class="rent-value">¥{{ property.rent }}</span>
@@ -123,27 +134,56 @@ onMounted(load)
 </template>
 
 <style scoped>
+.my-entry {
+  padding: 12px 12px 0;
+}
+
+.my-entry-card {
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: var(--brand);
+  color: #fff;
+  cursor: pointer;
+}
+
+.my-entry-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.my-entry-sub {
+  margin-top: 3px;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
 .filter-area {
+  padding: 0 12px 12px;
+}
+
+.filter-area :deep(.van-search) {
+  background: transparent;
+  padding: 0 0 8px;
+}
+
+.filter-area :deep(.van-search__content) {
   background: #fff;
-  padding-bottom: 4px;
+  border: 0.5px solid var(--line);
+  border-radius: 14px;
 }
 
 .rent-filter {
   display: flex;
   align-items: center;
-  padding: 0 8px 12px;
-  gap: 6px;
+  gap: 8px;
 }
 
 .rent-field {
   flex: 1;
-  padding: 6px 10px;
-  background: #f7f8fa;
-  border-radius: 6px;
-}
-
-.rent-sep {
-  color: #969799;
+  padding: 7px 10px;
+  background: #fff;
+  border: 0.5px solid var(--line);
+  border-radius: 14px;
 }
 
 .filter-btn {
@@ -164,55 +204,66 @@ onMounted(load)
 
 .property-card {
   display: flex;
+  gap: 10px;
+  padding: 14px;
   background: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border: 0.5px solid var(--line);
+  border-radius: 14px;
 }
 
 .property-cover {
-  width: 108px;
-  height: 96px;
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
   object-fit: cover;
   flex-shrink: 0;
 }
 
 .property-body {
   flex: 1;
-  padding: 10px 12px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-width: 0;
 }
 
 .property-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.property-desc {
-  font-size: 12px;
-  color: #646566;
+.property-location {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.property-meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--hint);
+}
+
 .property-rent {
-  color: #ee0a24;
+  margin-top: 6px;
+  color: var(--brand);
 }
 
 .rent-value {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .rent-unit {
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
   margin-left: 2px;
 }
 </style>

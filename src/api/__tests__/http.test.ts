@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import MockAdapter from 'axios-mock-adapter'
 import { ApiError, http, unwrapBody } from '../http'
 
@@ -56,6 +56,49 @@ describe('http response interceptor', () => {
     await expect(http.get('/api/net')).rejects.toEqual(
       expect.objectContaining({ code: -1, message: '网络异常，请稍后重试' })
     )
+  })
+})
+
+describe('request identity header injection', () => {
+  function headerOf(request: { headers?: unknown } | undefined): unknown {
+    const headers = request?.headers as Record<string, unknown> | undefined
+    return headers?.['X-Viewer-Identity']
+  }
+
+  it('首请求先完成身份初始化再携带身份头', async () => {
+    vi.resetModules()
+    const { http: freshHttp } = await import('../http')
+    const mock2 = new MockAdapter(freshHttp)
+    localStorage.clear()
+    mock2.onGet('/api/items').reply(200, { code: 0, data: [] })
+    await freshHttp.get('/api/items')
+    const stored = localStorage.getItem('viewerIdentity')
+    expect(stored).toBeTruthy()
+    const request = mock2.history.get.find((r) => r.url === '/api/items')
+    expect(headerOf(request)).toBe(stored)
+  })
+
+  it('本地已有身份时请求头携带既有身份', async () => {
+    vi.resetModules()
+    const { http: freshHttp } = await import('../http')
+    const mock2 = new MockAdapter(freshHttp)
+    localStorage.setItem('viewerIdentity', 'openid-known')
+    mock2.onGet('/api/known').reply(200, { code: 0, data: [] })
+    await freshHttp.get('/api/known')
+    const request = mock2.history.get.find((r) => r.url === '/api/known')
+    expect(headerOf(request)).toBe('openid-known')
+  })
+
+  it('换取 openid 的请求不携带身份头（避免初始化自等待）', async () => {
+    vi.resetModules()
+    const { http: freshHttp } = await import('../http')
+    const mock2 = new MockAdapter(freshHttp)
+    localStorage.clear()
+    mock2.onPost('/api/wechat/session').reply(200, { code: 0, data: { openid: 'o-1' } })
+    await freshHttp.post('/api/wechat/session', { code: 'c-1' })
+    const request = mock2.history.post.find((r) => r.url === '/api/wechat/session')
+    expect(request).toBeDefined()
+    expect(headerOf(request)).toBeUndefined()
   })
 })
 

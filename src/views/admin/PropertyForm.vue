@@ -21,7 +21,8 @@ const form = ref({
   area: '',
   rent: '',
   contact: '',
-  description: ''
+  description: '',
+  ttlockLockId: ''
 })
 const surroundings = ref<UploadedMedia[]>([])
 const videos = ref<UploadedMedia[]>([])
@@ -61,7 +62,8 @@ onMounted(async () => {
         area: String(property.area),
         rent: String(property.rent),
         contact: property.contact,
-        description: property.description ?? ''
+        description: property.description ?? '',
+        ttlockLockId: property.ttlockLockId ?? ''
       }
       buildingId.value = property.buildingId
       surroundings.value = toUploaded('SURROUNDING', property.media as UploadedMedia[])
@@ -142,6 +144,9 @@ async function onSubmit() {
   }
   if (form.value.description.trim()) {
     input.description = form.value.description.trim()
+  }
+  if (form.value.ttlockLockId.trim()) {
+    input.ttlockLockId = form.value.ttlockLockId.trim()
   }
   submitting.value = true
   try {
@@ -238,6 +243,12 @@ function goBack() {
                 rows="3"
                 autosize
                 placeholder="选填，请输入房源描述"
+              />
+              <van-field
+                v-model="form.ttlockLockId"
+                maxlength="64"
+                label="通通锁锁具编号"
+                placeholder="选填，用于预约开始前自动派发房门密码"
               />
             </van-cell-group>
 

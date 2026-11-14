@@ -6,6 +6,7 @@ import type {
   BuildingInput,
   DailyPassword,
   DailyPasswordInput,
+  MyAppointment,
   Property,
   PropertyInput,
   PropertyQuery,
@@ -43,6 +44,18 @@ export function sendVerificationCode(phone: string): Promise<void> {
 
 export function getWechatConfig(): Promise<WechatConfig> {
   return http.get('/api/config/wechat').then((r) => r.data as WechatConfig)
+}
+
+export function exchangeWechatSession(code: string): Promise<{ openid: string }> {
+  return http.post('/api/wechat/session', { code }).then((r) => r.data as { openid: string })
+}
+
+export function getMyAppointments(): Promise<MyAppointment[]> {
+  return http.get('/api/me/appointments').then((r) => r.data as MyAppointment[])
+}
+
+export function openDoor(id: number | string): Promise<void> {
+  return http.post(`/api/me/appointments/${id}/open-door`).then(() => undefined)
 }
 
 export function adminListProperties(): Promise<Property[]> {

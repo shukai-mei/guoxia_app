@@ -95,6 +95,7 @@ describe('PropertyForm', () => {
       buildingId: 4,
       building: null,
       status: 'AVAILABLE',
+      ttlockLockId: 'TTLOCK-001',
       media: [
         { type: 'SURROUNDING', key: 's.jpg', url: 'https://signed/s.jpg', sortOrder: 0 },
         { type: 'VIDEO', key: 'v.mp4', url: 'https://signed/v.mp4', sortOrder: 0 }
@@ -105,6 +106,10 @@ describe('PropertyForm', () => {
     expect((wrapper.find('.van-field__control[readonly]').element as HTMLInputElement).value).toBe('B栋')
     expect(wrapper.find('img[src="https://signed/s.jpg"]').exists()).toBe(true)
     expect(wrapper.find('video[src="https://signed/v.mp4"]').exists()).toBe(true)
+    expect(
+      (wrapper.find('input[placeholder="选填，用于预约开始前自动派发房门密码"]').element as HTMLInputElement)
+        .value
+    ).toBe('TTLOCK-001')
     expect(mockedGetProperty).toHaveBeenCalledWith('5')
   })
 
@@ -132,6 +137,53 @@ describe('PropertyForm', () => {
     expect(mockedUpdate).toHaveBeenCalledWith(
       '5',
       expect.objectContaining({ title: '阳光公寓改', buildingId: 4 })
+    )
+  })
+
+  it('submits optional ttlock lock id on create', async () => {
+    mockedCreate.mockResolvedValue({ id: 1 } as never)
+    const { wrapper } = await mountAt(PropertyForm, '/admin/properties/new')
+    await flushPromises()
+    await fillBaseForm(wrapper)
+    await wrapper
+      .find('input[placeholder="选填，用于预约开始前自动派发房门密码"]')
+      .setValue('TTLOCK-002')
+    vmOf(wrapper).onBuildingConfirm({ selectedValues: [BUILDINGS[0].id] })
+    await flushPromises()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(mockedCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ ttlockLockId: 'TTLOCK-002' })
+    )
+  })
+
+  it('omits ttlock lock id when left empty', async () => {
+    mockedCreate.mockResolvedValue({ id: 1 } as never)
+    const { wrapper } = await mountAt(PropertyForm, '/admin/properties/new')
+    await flushPromises()
+    await fillBaseForm(wrapper)
+    vmOf(wrapper).onBuildingConfirm({ selectedValues: [BUILDINGS[0].id] })
+    await flushPromises()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    const payload = mockedCreate.mock.calls[0]![0] as unknown as Record<string, unknown>
+    expect(payload.ttlockLockId).toBeUndefined()
+  })
+
+  it('truncates ttlock lock id to 64 characters on input', async () => {
+    mockedCreate.mockResolvedValue({ id: 1 } as never)
+    const { wrapper } = await mountAt(PropertyForm, '/admin/properties/new')
+    await flushPromises()
+    await fillBaseForm(wrapper)
+    await wrapper
+      .find('input[placeholder="选填，用于预约开始前自动派发房门密码"]')
+      .setValue('x'.repeat(65))
+    vmOf(wrapper).onBuildingConfirm({ selectedValues: [BUILDINGS[0].id] })
+    await flushPromises()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(mockedCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ ttlockLockId: 'x'.repeat(64) })
     )
   })
 })

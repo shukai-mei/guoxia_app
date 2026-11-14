@@ -12,11 +12,14 @@ import {
   adminUpdateWechatConfig,
   confirmAppointment,
   createProperty,
+  exchangeWechatSession,
   getDailyPassword,
+  getMyAppointments,
   getProperty,
   getSlots,
   getWechatConfig,
   listProperties,
+  openDoor,
   rejectAppointment,
   resendAppointmentSms,
   sendVerificationCode,
@@ -124,6 +127,44 @@ describe('tenant api', () => {
     mock.onGet('/api/config/wechat').reply(...ok({ contact: 'wx', qrUrl: 'https://signed' }))
     const config = await getWechatConfig()
     expect(config).toEqual({ contact: 'wx', qrUrl: 'https://signed' })
+  })
+
+  it('exchangeWechatSession POST /api/wechat/session with code', async () => {
+    mock.onPost('/api/wechat/session').reply(...ok({ openid: 'openid-9' }))
+    const result = await exchangeWechatSession('wx-code')
+    expect(result).toEqual({ openid: 'openid-9' })
+    const request = mock.history.post.find((r) => r.url === '/api/wechat/session')
+    expect(request).toBeDefined()
+    expect(JSON.parse(request!.data)).toEqual({ code: 'wx-code' })
+  })
+
+  it('exchangeWechatSession surfaces invalid credential error', async () => {
+    mock.onPost('/api/wechat/session').reply(...fail(400, '登录凭证无效'))
+    await expect(exchangeWechatSession('bad')).rejects.toMatchObject({
+      code: 400,
+      message: '登录凭证无效'
+    })
+  })
+
+  it('getMyAppointments GET /api/me/appointments', async () => {
+    mock
+      .onGet('/api/me/appointments')
+      .reply(...ok([{ id: 1, propertyTitle: '阳光公寓', status: 'CONFIRMED', canOpenDoor: true }]))
+    const result = await getMyAppointments()
+    expect(result).toEqual([
+      { id: 1, propertyTitle: '阳光公寓', status: 'CONFIRMED', canOpenDoor: true }
+    ])
+  })
+
+  it('openDoor POST /api/me/appointments/{id}/open-door', async () => {
+    mock.onPost('/api/me/appointments/7/open-door').reply(...ok(null))
+    await openDoor(7)
+    expect(mock.history.post.some((r) => r.url === '/api/me/appointments/7/open-door')).toBe(true)
+  })
+
+  it('openDoor surfaces backend refusal message', async () => {
+    mock.onPost('/api/me/appointments/7/open-door').reply(...fail(403, '预约未确认'))
+    await expect(openDoor(7)).rejects.toMatchObject({ code: 403, message: '预约未确认' })
   })
 })
 

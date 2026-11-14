@@ -39,6 +39,7 @@ beforeEach(() => {
     slotStartTime: '06:00',
     slotEndTime: '14:00',
     slotDurationMinutes: 120,
+    accessDeviceSerial: 'HIK-DEV-001',
     media: [{ key: '2026/map.jpg', url: 'https://signed/map.jpg', sortOrder: 0 }]
   })
 })
@@ -52,7 +53,7 @@ async function confirmTimePicker(wrapper: Wrapper) {
 
 function vmForm(wrapper: Wrapper) {
   return wrapper.vm as unknown as {
-    form: { slotStartTime: string; slotEndTime: string }
+    form: { slotStartTime: string; slotEndTime: string; accessDeviceSerial: string }
   }
 }
 
@@ -73,6 +74,10 @@ describe('BuildingForm', () => {
     expect((wrapper.find('input[placeholder="请输入地址"]').element as HTMLInputElement).value).toBe('幸福路 1 号')
     expect(wrapper.text()).toContain('地址参考图')
     expect(wrapper.find('img[src="https://signed/map.jpg"]').exists()).toBe(true)
+    expect(
+      (wrapper.find('input[placeholder="选填，用于预约时段内自助开门"]').element as HTMLInputElement)
+        .value
+    ).toBe('HIK-DEV-001')
     const timeFields = wrapper.findAll('.van-field__control[readonly]')
     expect((timeFields[0].element as HTMLInputElement).value).toBe('06:00')
     expect((timeFields[1].element as HTMLInputElement).value).toBe('14:00')
@@ -128,8 +133,69 @@ describe('BuildingForm', () => {
     await flushPromises()
     expect(mockedUpdate).toHaveBeenCalledWith(
       '3',
-      expect.objectContaining({ name: 'A栋改', slotStartTime: '06:00', slotEndTime: '14:00' })
+      expect.objectContaining({
+        name: 'A栋改',
+        slotStartTime: '06:00',
+        slotEndTime: '14:00',
+        accessDeviceSerial: 'HIK-DEV-001'
+      })
     )
     expect(replaceSpy).toHaveBeenCalledWith('/admin/buildings')
+  })
+
+  it('submits optional access device serial on create', async () => {
+    mockedCreate.mockResolvedValue({ id: 4 } as never)
+    const { wrapper } = await mountAt(BuildingForm, '/admin/buildings/new')
+    await flushPromises()
+    await wrapper.find('input[placeholder="请输入楼栋名称"]').setValue('B栋')
+    await wrapper.find('input[placeholder="请输入地址"]').setValue('幸福路 2 号')
+    await wrapper.find('input[placeholder="请输入时段长度，至少 30 分钟"]').setValue('60')
+    await wrapper
+      .find('input[placeholder="选填，用于预约时段内自助开门"]')
+      .setValue('HIK-DEV-002')
+    const form = vmForm(wrapper).form
+    form.slotStartTime = '09:00'
+    form.slotEndTime = '10:00'
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(mockedCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ accessDeviceSerial: 'HIK-DEV-002' })
+    )
+  })
+
+  it('omits access device serial when left empty', async () => {
+    mockedCreate.mockResolvedValue({ id: 4 } as never)
+    const { wrapper } = await mountAt(BuildingForm, '/admin/buildings/new')
+    await flushPromises()
+    await wrapper.find('input[placeholder="请输入楼栋名称"]').setValue('B栋')
+    await wrapper.find('input[placeholder="请输入地址"]').setValue('幸福路 2 号')
+    await wrapper.find('input[placeholder="请输入时段长度，至少 30 分钟"]').setValue('60')
+    const form = vmForm(wrapper).form
+    form.slotStartTime = '09:00'
+    form.slotEndTime = '10:00'
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    const payload = mockedCreate.mock.calls[0]![0] as unknown as Record<string, unknown>
+    expect(payload.accessDeviceSerial).toBeUndefined()
+  })
+
+  it('truncates access device serial to 64 characters on input', async () => {
+    mockedCreate.mockResolvedValue({ id: 4 } as never)
+    const { wrapper } = await mountAt(BuildingForm, '/admin/buildings/new')
+    await flushPromises()
+    await wrapper.find('input[placeholder="请输入楼栋名称"]').setValue('B栋')
+    await wrapper.find('input[placeholder="请输入地址"]').setValue('幸福路 2 号')
+    await wrapper.find('input[placeholder="请输入时段长度，至少 30 分钟"]').setValue('60')
+    await wrapper
+      .find('input[placeholder="选填，用于预约时段内自助开门"]')
+      .setValue('x'.repeat(65))
+    const form = vmForm(wrapper).form
+    form.slotStartTime = '09:00'
+    form.slotEndTime = '10:00'
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(mockedCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ accessDeviceSerial: 'x'.repeat(64) })
+    )
   })
 })

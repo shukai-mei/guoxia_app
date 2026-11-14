@@ -83,6 +83,28 @@ describe('PropertyDetail', () => {
     expect(mockedGetSlots).not.toHaveBeenCalled()
   })
 
+  it('hides booking section and skips slot loading when reached from appointment records', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({
+        id: 3,
+        name: 'A栋',
+        address: '幸福路 1 号',
+        hasElevator: true,
+        totalFloors: 12,
+        elevatorRatio: null,
+        deliveryFacilities: null,
+        livingExperience: null,
+        media: []
+      })
+    )
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5?from=appointment')
+    await flushPromises()
+    expect(wrapper.text()).toContain('A栋')
+    expect(wrapper.text()).not.toContain('预约看房')
+    expect(wrapper.find('form').exists()).toBe(false)
+    expect(mockedGetSlots).not.toHaveBeenCalled()
+  })
+
   it('renders slot chips with occupied slots disabled', async () => {
     mockedGetProperty.mockResolvedValue(
       propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })

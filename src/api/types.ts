@@ -40,6 +40,7 @@ export interface Property {
   contact: string
   buildingId: number | null
   building: BuildingInfo | null
+  ttlockLockId?: string | null
   status: PropertyStatus
   media: MediaItem[]
 }
@@ -56,6 +57,7 @@ export interface Building {
   slotStartTime: string
   slotEndTime: string
   slotDurationMinutes: number
+  accessDeviceSerial?: string | null
   media: BuildingMediaItem[]
 }
 
@@ -102,6 +104,27 @@ export interface Appointment {
   createdAt: string
 }
 
+export interface MyAppointment {
+  id: number
+  propertyId: number
+  propertyTitle: string
+  tenantName: string
+  phone: string
+  slotStart: string
+  slotEnd: string
+  status: AppointmentStatus
+  rejectReason: string | null
+  passcode?: string | null
+  canOpenDoor: boolean
+  doorSupported: boolean
+  lockSupported: boolean
+  buildingName: string | null
+  buildingAddress: string | null
+  propertyLocation: string | null
+  propertyLayout: string | null
+  createdAt: string
+}
+
 export interface UploadResult {
   key: string
   url: string
@@ -127,6 +150,7 @@ export interface PropertyInput {
   description?: string
   contact: string
   buildingId: number
+  ttlockLockId?: string
   media: MediaInput[]
 }
 
@@ -141,6 +165,7 @@ export interface BuildingInput {
   slotStartTime: string
   slotEndTime: string
   slotDurationMinutes: number
+  accessDeviceSerial?: string
   media: BuildingMediaInput[]
 }
 

@@ -59,6 +59,10 @@ function goBack() {
   router.back()
 }
 
+function goMyAppointments() {
+  router.push('/my-appointments')
+}
+
 onMounted(load)
 </script>
 
@@ -68,7 +72,7 @@ onMounted(load)
 
     <div class="page">
       <div class="page-content">
-        <van-loading v-if="loading" class="state-block" color="#1989fa">加载中...</van-loading>
+        <van-loading v-if="loading" class="state-block">加载中...</van-loading>
 
         <van-empty v-else-if="errorText" image="error" :description="errorText">
           <van-button size="small" type="primary" @click="goBack">返回</van-button>
@@ -76,10 +80,19 @@ onMounted(load)
 
         <template v-else>
           <div class="success-card">
-            <van-icon name="passed" class="success-icon" color="#07c160" />
+            <van-icon name="passed" class="success-icon" />
             <div class="success-title">预约成功</div>
             <div class="success-time">看房时间：{{ timeText }}</div>
             <div v-if="property" class="success-property">房源：{{ property.title }}</div>
+            <van-button
+              round
+              block
+              type="primary"
+              class="my-appointments-btn"
+              @click="goMyAppointments"
+            >
+              查看我的预约
+            </van-button>
           </div>
 
           <template v-if="wechat && (wechat.qrUrl || wechat.contact)">
@@ -97,7 +110,9 @@ onMounted(load)
               <div v-if="wechat.contact" class="wechat-contact">
                 客服微信号：{{ wechat.contact }}
               </div>
-              <div class="wechat-hint">请提前添加客服微信，到楼后联系客服远程开门禁</div>
+              <div class="wechat-hint">
+                请提前添加客服微信，预约时间段内可在我的预约中自助开启楼栋门禁、查看房门密码
+              </div>
             </div>
           </template>
 
@@ -135,7 +150,8 @@ onMounted(load)
 
 .success-card {
   background: #fff;
-  border-radius: 8px;
+  border: 0.5px solid var(--line);
+  border-radius: 14px;
   padding: 24px 16px;
   display: flex;
   flex-direction: column;
@@ -145,6 +161,7 @@ onMounted(load)
 
 .success-icon {
   font-size: 48px;
+  color: var(--brand);
 }
 
 .success-title {
@@ -154,17 +171,22 @@ onMounted(load)
 
 .success-time {
   font-size: 14px;
-  color: #323233;
+  color: var(--ink);
 }
 
 .success-property {
   font-size: 13px;
-  color: #646566;
+  color: var(--muted);
+}
+
+.my-appointments-btn {
+  margin-top: 10px;
 }
 
 .detail-card {
   background: #fff;
-  border-radius: 8px;
+  border: 0.5px solid var(--line);
+  border-radius: 14px;
   padding: 16px;
 }
 
@@ -176,17 +198,17 @@ onMounted(load)
 }
 
 .wechat-qr {
-  background: #f7f8fa;
+  background: #f2f3f5;
 }
 
 .wechat-contact {
   font-size: 14px;
-  color: #323233;
+  color: var(--ink);
 }
 
 .wechat-hint {
   font-size: 12px;
-  color: #969799;
+  color: var(--muted);
 }
 
 .media-grid {

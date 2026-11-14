@@ -80,6 +80,8 @@ const addressMedia = computed(() =>
 
 const supportsAppointment = computed(() => building.value !== null)
 
+const fromAppointment = computed(() => route.query.from === 'appointment')
+
 async function refreshMedia() {
   if (refreshedOnce || refreshing) {
     return
@@ -248,7 +250,7 @@ async function onSubmit() {
 onMounted(async () => {
   selectedDate.value = toDateString(new Date())
   await load()
-  if (!offShelf.value && building.value) {
+  if (!offShelf.value && building.value && !fromAppointment.value) {
     loadSlots()
   }
 })
@@ -260,7 +262,7 @@ onMounted(async () => {
 
     <div class="page">
       <div class="page-content">
-        <van-loading v-if="loading" class="state-block" color="#1989fa">加载中...</van-loading>
+        <van-loading v-if="loading" class="state-block">加载中...</van-loading>
 
         <van-empty v-else-if="errorText" image="error" :description="errorText">
           <van-button size="small" type="primary" @click="load">重试</van-button>
@@ -273,14 +275,14 @@ onMounted(async () => {
             <div class="detail-title">{{ property.title }}</div>
             <div class="detail-location">{{ property.location }}</div>
             <div class="detail-tags">
-              <van-tag plain type="primary">{{ property.layout }}</van-tag>
-              <van-tag plain type="primary">{{ property.area }}㎡</van-tag>
-              <van-tag plain color="#ee0a24">¥{{ property.rent }}/月</van-tag>
+              <span class="spec-tag">{{ property.layout }}</span>
+              <span class="spec-tag">{{ property.area }}㎡</span>
+              <span class="spec-tag spec-tag--price">¥{{ property.rent }}/月</span>
             </div>
             <div v-if="property.description" class="detail-description">
               {{ property.description }}
             </div>
-            <div class="detail-contact">联系方式：{{ property.contact }}</div>
+            <div class="detail-contact">联系方式：<span>{{ property.contact }}</span></div>
           </div>
 
           <template v-if="building">
@@ -352,7 +354,7 @@ onMounted(async () => {
             ></video>
           </template>
 
-          <div class="appointment-card">
+          <div v-if="!fromAppointment" class="appointment-card">
             <div class="section-title">预约看房</div>
             <template v-if="supportsAppointment">
               <van-form @submit="onSubmit">
@@ -411,7 +413,7 @@ onMounted(async () => {
                     选择看房时段
                     <span class="slot-date">{{ selectedDate }}</span>
                   </div>
-                  <van-loading v-if="slotsLoading" class="slot-state" size="20px" color="#1989fa" />
+                  <van-loading v-if="slotsLoading" class="slot-state" size="20px" />
                   <div v-else-if="slotsError" class="slot-state slot-error">
                     {{ slotsError }}
                     <van-button size="mini" type="primary" plain @click="loadSlots">重试</van-button>
@@ -433,6 +435,10 @@ onMounted(async () => {
                     >
                       {{ slot.start }}~{{ slot.end }}
                     </div>
+                  </div>
+                  <div v-if="slots.length > 0" class="slot-legend">
+                    图例：<span class="legend-sel">■ 已选</span>　<span>□ 可选</span>
+                    <span class="legend-full">■ 已约满</span>
                   </div>
                 </div>
 
@@ -478,54 +484,77 @@ onMounted(async () => {
 
 .detail-card {
   background: #fff;
-  border-radius: 8px;
-  padding: 16px;
+  border: 0.5px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
 }
 
 .detail-title {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 600;
 }
 
 .detail-location {
-  margin-top: 6px;
-  font-size: 13px;
-  color: #646566;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .detail-tags {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.spec-tag {
+  font-size: 11px;
+  border: 0.5px solid var(--line2);
+  border-radius: 7px;
+  padding: 2px 9px;
+  color: var(--sub);
+  line-height: 1.5;
+}
+
+.spec-tag--price {
+  color: var(--brand);
+  background: var(--brand-light);
+  border-color: transparent;
+  font-weight: 500;
 }
 
 .detail-description {
   margin-top: 12px;
   font-size: 14px;
   line-height: 1.6;
-  color: #323233;
+  color: var(--ink);
   white-space: pre-wrap;
 }
 
 .detail-contact {
-  margin-top: 12px;
-  font-size: 13px;
-  color: #646566;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.detail-contact span {
+  color: var(--ink);
 }
 
 .building-card {
-  padding: 12px 16px;
+  padding: 12px 14px;
 }
 
 .building-name {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
 }
 
 .building-address {
   margin-top: 4px;
-  font-size: 13px;
-  color: #646566;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .building-attrs {
@@ -537,7 +566,7 @@ onMounted(async () => {
 
 .building-attr {
   font-size: 13px;
-  color: #323233;
+  color: var(--ink);
 }
 
 .building-card .media-grid {
@@ -559,8 +588,15 @@ onMounted(async () => {
 .appointment-card {
   margin-top: 16px;
   background: #fff;
-  border-radius: 8px;
+  border: 0.5px solid var(--line);
+  border-radius: 14px;
   padding: 12px 0 16px;
+}
+
+.send-code-btn {
+  background: var(--brand-light);
+  border-color: transparent;
+  color: var(--brand);
 }
 
 .slot-area {
@@ -568,14 +604,19 @@ onMounted(async () => {
 }
 
 .slot-area-title {
-  font-size: 13px;
-  color: #323233;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
   margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .slot-date {
-  margin-left: 4px;
-  color: #969799;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 .slot-state {
@@ -585,11 +626,11 @@ onMounted(async () => {
   gap: 8px;
   padding: 12px 0;
   font-size: 13px;
-  color: #969799;
+  color: var(--muted);
 }
 
 .slot-error {
-  color: #ee0a24;
+  color: var(--accent);
 }
 
 .slot-grid {
@@ -603,30 +644,46 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #dcdee0;
-  border-radius: 6px;
-  font-size: 13px;
-  color: #323233;
+  border: 0.5px solid var(--line2);
+  border-radius: 9px;
+  font-size: 11px;
+  color: var(--ink);
   background: #fff;
 }
 
 .slot-chip-disabled {
-  color: #c8c9cc;
-  border-color: #ebedf0;
-  background: #f7f8fa;
+  color: #c0beb5;
+  border-color: transparent;
+  background: #f2f3f5;
 }
 
 .slot-chip-selected {
-  color: #1989fa;
-  border-color: #1989fa;
-  background: #ecf5ff;
+  color: #fff;
+  border-color: transparent;
+  background: var(--brand);
+  font-weight: 500;
+}
+
+.slot-legend {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.legend-sel {
+  color: var(--brand);
+  font-weight: 500;
+}
+
+.legend-full {
+  color: #c0beb5;
 }
 
 .unsupported-tip {
   padding: 20px 16px 8px;
   text-align: center;
   font-size: 14px;
-  color: #969799;
+  color: var(--muted);
 }
 
 .submit-wrap {

@@ -24,7 +24,8 @@ const form = ref({
   livingExperience: '',
   slotStartTime: '',
   slotEndTime: '',
-  slotDurationMinutes: ''
+  slotDurationMinutes: '',
+  accessDeviceSerial: ''
 })
 const media = ref<UploadedMedia[]>([])
 
@@ -67,7 +68,8 @@ onMounted(async () => {
       livingExperience: building.livingExperience ?? '',
       slotStartTime: building.slotStartTime,
       slotEndTime: building.slotEndTime,
-      slotDurationMinutes: String(building.slotDurationMinutes)
+      slotDurationMinutes: String(building.slotDurationMinutes),
+      accessDeviceSerial: building.accessDeviceSerial ?? ''
     }
     media.value = toMediaUploaded(building.media)
   } catch (error) {
@@ -146,6 +148,9 @@ function buildInput(): BuildingInput {
   }
   if (f.livingExperience.trim()) {
     input.livingExperience = f.livingExperience.trim()
+  }
+  if (f.accessDeviceSerial.trim()) {
+    input.accessDeviceSerial = f.accessDeviceSerial.trim()
   }
   return input
 }
@@ -262,6 +267,12 @@ function goBack() {
                 type="digit"
                 label="时段长度（分钟）"
                 placeholder="请输入时段长度，至少 30 分钟"
+              />
+              <van-field
+                v-model="form.accessDeviceSerial"
+                maxlength="64"
+                label="门禁设备序列号"
+                placeholder="选填，用于预约时段内自助开门"
               />
             </van-cell-group>
 

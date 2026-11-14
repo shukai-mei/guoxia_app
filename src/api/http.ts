@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios'
+import { ensureIdentityInitialized } from '../utils/identity'
 
 export class ApiError extends Error {
   code: number
@@ -32,6 +33,22 @@ export function unwrapBody(body: unknown): unknown {
 export const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/',
   timeout: 120000
+})
+
+http.interceptors.request.use(async (config) => {
+  // 换取 openid 的请求本身无需身份头；排除它可避免初始化等待自身造成死锁
+  if (config.url === '/api/wechat/session') {
+    return config
+  }
+  try {
+    const identity = await ensureIdentityInitialized()
+    if (identity) {
+      config.headers.set('X-Viewer-Identity', identity)
+    }
+  } catch {
+    // 身份初始化失败不阻断请求，降级为无身份请求
+  }
+  return config
 })
 
 http.interceptors.response.use(

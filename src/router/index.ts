@@ -19,6 +19,11 @@ const router = createRouter({
       component: () => import('../views/tenant/BookingSuccess.vue')
     },
     {
+      path: '/my-appointments',
+      name: 'tenant-my-appointments',
+      component: () => import('../views/tenant/MyAppointments.vue')
+    },
+    {
       path: '/admin',
       name: 'admin-home',
       component: () => import('../views/admin/AdminHome.vue')

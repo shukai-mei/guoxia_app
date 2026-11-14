@@ -4,6 +4,22 @@
   box-sizing: border-box;
 }
 
+:root {
+  --van-primary-color: #f57c2a;
+  --van-nav-bar-icon-color: #f57c2a;
+  --brand: #f57c2a;
+  --brand-light: #fef0e3;
+  --brand-strong: #c75e18;
+  --accent: #ff8a3d;
+  --ink: #2c2c2a;
+  --sub: #5f5e5a;
+  --muted: #888780;
+  --hint: #b4b2a9;
+  --bg: #f5f6f7;
+  --line: rgba(0, 0, 0, 0.08);
+  --line2: rgba(0, 0, 0, 0.12);
+}
+
 html,
 body {
   height: 100%;
@@ -13,8 +29,8 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica,
     'Segoe UI', Arial, Roboto, 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft Yahei', sans-serif;
-  background: #f7f8fa;
-  color: #323233;
+  background: var(--bg);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -38,8 +54,8 @@ body {
 }
 
 .section-title {
-  margin: 16px 0 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #646566;
+  margin: 14px 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
 }
