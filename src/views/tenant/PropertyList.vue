@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { showToast } from 'vant'
 import { listProperties } from '../../api'
 import type { Property } from '../../api/types'
 import { errorMessageOf } from '../../utils/error'
@@ -14,29 +15,50 @@ const rentMax = ref('')
 
 const loading = ref(false)
 const loaded = ref(false)
+const refreshing = ref(false)
 const errorText = ref('')
 const properties = ref<Property[]>([])
+
+function buildParams(): { keyword?: string; rentMin?: number; rentMax?: number } {
+  const params: { keyword?: string; rentMin?: number; rentMax?: number } = {}
+  if (keyword.value.trim()) {
+    params.keyword = keyword.value.trim()
+  }
+  if (isPositiveNumber(rentMin.value)) {
+    params.rentMin = Number(rentMin.value)
+  }
+  if (isPositiveNumber(rentMax.value)) {
+    params.rentMax = Number(rentMax.value)
+  }
+  return params
+}
 
 async function load() {
   loading.value = true
   errorText.value = ''
   try {
-    const params: { keyword?: string; rentMin?: number; rentMax?: number } = {}
-    if (keyword.value.trim()) {
-      params.keyword = keyword.value.trim()
-    }
-    if (isPositiveNumber(rentMin.value)) {
-      params.rentMin = Number(rentMin.value)
-    }
-    if (isPositiveNumber(rentMax.value)) {
-      params.rentMax = Number(rentMax.value)
-    }
-    properties.value = await listProperties(params)
+    properties.value = await listProperties(buildParams())
     loaded.value = true
   } catch (error) {
     errorText.value = errorMessageOf(error)
   } finally {
     loading.value = false
+  }
+}
+
+async function onRefresh() {
+  refreshing.value = true
+  try {
+    properties.value = await listProperties(buildParams())
+    errorText.value = ''
+  } catch (error) {
+    if (properties.value.length === 0) {
+      errorText.value = errorMessageOf(error)
+    } else {
+      showToast(errorMessageOf(error))
+    }
+  } finally {
+    refreshing.value = false
   }
 }
 
@@ -92,42 +114,44 @@ onMounted(load)
 
     <div class="page">
       <div class="page-content">
-        <van-loading v-if="loading && !loaded" class="state-block">
-          加载中...
-        </van-loading>
+        <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
+          <van-loading v-if="loading && !loaded" class="state-block">
+            加载中...
+          </van-loading>
 
-        <van-empty v-else-if="errorText" image="error" :description="errorText">
-          <van-button size="small" type="primary" @click="load">重试</van-button>
-        </van-empty>
+          <van-empty v-else-if="errorText" image="error" :description="errorText">
+            <van-button size="small" type="primary" @click="load">重试</van-button>
+          </van-empty>
 
-        <van-empty v-else-if="loaded && properties.length === 0" description="暂无在租房源" />
+          <van-empty v-else-if="loaded && properties.length === 0" description="暂无在租房源" />
 
-        <div v-else class="property-list">
-          <div
-            v-for="property in properties"
-            :key="property.id"
-            class="property-card"
-            @click="openDetail(property)"
-          >
-            <img
-              v-if="coverOf(property)"
-              :src="coverOf(property)"
-              class="property-cover"
-              alt="房源图片"
-            />
-            <div class="property-body">
-              <div>
-                <div class="property-title">{{ property.title }}</div>
-                <div class="property-location">{{ property.location }}</div>
-                <div class="property-meta">{{ property.layout }} · {{ property.area }}㎡</div>
-              </div>
-              <div class="property-rent">
-                <span class="rent-value">¥{{ property.rent }}</span>
-                <span class="rent-unit">/月</span>
+          <div v-else class="property-list">
+            <div
+              v-for="property in properties"
+              :key="property.id"
+              class="property-card"
+              @click="openDetail(property)"
+            >
+              <img
+                v-if="coverOf(property)"
+                :src="coverOf(property)"
+                class="property-cover"
+                alt="房源图片"
+              />
+              <div class="property-body">
+                <div>
+                  <div class="property-title">{{ property.title }}</div>
+                  <div class="property-location">{{ property.location }}</div>
+                  <div class="property-meta">{{ property.layout }} · {{ property.area }}㎡</div>
+                </div>
+                <div class="property-rent">
+                  <span class="rent-value">¥{{ property.rent }}</span>
+                  <span class="rent-unit">/月</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </van-pull-refresh>
       </div>
     </div>
   </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 import { Icon as VanIcon, showToast } from 'vant'
 import { getWechatConfig } from '../api'
 import type { WechatConfig } from '../api/types'
@@ -17,6 +17,7 @@ let startX = 0
 let startY = 0
 let moved = false
 let suppressClick = false
+let downOnBubble = false
 
 onMounted(async () => {
   try {
@@ -31,8 +32,26 @@ function hasContact(): boolean {
   return value != null && (value.qrUrl != null || value.contact != null)
 }
 
-function toggle() {
+function clampToViewport() {
+  const el = floatingRef.value
+  if (!el) {
+    return
+  }
+  const width = el.offsetWidth
+  const height = el.offsetHeight
+  const rect = el.getBoundingClientRect()
+  position.value = {
+    left: Math.min(Math.max(rect.left, 0), Math.max(window.innerWidth - width, 0)),
+    top: Math.min(Math.max(rect.top, 0), Math.max(window.innerHeight - height, 0))
+  }
+}
+
+async function toggle() {
   expanded.value = !expanded.value
+  if (expanded.value && position.value) {
+    await nextTick()
+    clampToViewport()
+  }
 }
 
 function onPointerDown(event: PointerEvent) {
@@ -49,6 +68,8 @@ function onPointerDown(event: PointerEvent) {
   startX = event.clientX
   startY = event.clientY
   moved = false
+  suppressClick = false
+  downOnBubble = (event.target as HTMLElement | null)?.closest?.('.contact-bubble') != null
   pointerId = event.pointerId
   position.value = { left: rect.left, top: rect.top }
   ;(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId)
@@ -78,8 +99,12 @@ function onPointerUp(event: PointerEvent) {
   pointerId = null
   const wasDragged = moved
   moved = false
-  suppressClick = true
-  if (!wasDragged) {
+  if (wasDragged) {
+    suppressClick = true
+    return
+  }
+  if (downOnBubble) {
+    suppressClick = true
     toggle()
   }
 }
@@ -90,6 +115,14 @@ function onClickBubble() {
     return
   }
   toggle()
+}
+
+function onPanelClickCapture(event: Event) {
+  if (suppressClick) {
+    suppressClick = false
+    event.stopPropagation()
+    event.preventDefault()
+  }
 }
 
 function selectFallback(text: string) {
@@ -127,8 +160,12 @@ async function onCopyContact() {
         ? { left: `${position.left}px`, top: `${position.top}px`, right: 'auto', bottom: 'auto' }
         : undefined
     "
+    @pointerdown="onPointerDown"
+    @pointermove="onPointerMove"
+    @pointerup="onPointerUp"
+    @pointercancel="onPointerUp"
   >
-    <div v-if="expanded" class="contact-panel">
+    <div v-if="expanded" class="contact-panel" @click.capture="onPanelClickCapture">
       <div class="contact-panel-head">
         <span class="contact-title">联系管家</span>
         <span class="contact-collapse" @click="toggle">收起</span>
@@ -148,10 +185,6 @@ async function onCopyContact() {
       class="contact-bubble"
       type="button"
       @click="onClickBubble"
-      @pointerdown="onPointerDown"
-      @pointermove="onPointerMove"
-      @pointerup="onPointerUp"
-      @pointercancel="onPointerUp"
     >
       <span class="contact-bubble-ic"><VanIcon name="wap-home-o" /></span>
       <span class="contact-bubble-text">
@@ -171,6 +204,9 @@ async function onCopyContact() {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .contact-panel {
@@ -237,7 +273,6 @@ async function onCopyContact() {
   border-radius: 22px;
   background: #fff;
   cursor: pointer;
-  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
 }
