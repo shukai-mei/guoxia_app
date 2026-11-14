@@ -87,6 +87,14 @@ function doorPendingOf(item: MyAppointment): boolean {
   return item.status === 'CONFIRMED' && item.doorSupported && isBeforeWindow(item)
 }
 
+function passcodeUnconfirmedOf(item: MyAppointment): boolean {
+  return item.status === 'PENDING' && item.lockSupported && !isAfterWindow(item)
+}
+
+function doorUnconfirmedOf(item: MyAppointment): boolean {
+  return item.status === 'PENDING' && item.doorSupported && !isAfterWindow(item)
+}
+
 async function onOpenDoor(item: MyAppointment) {
   if (openingId.value !== null) {
     return
@@ -104,6 +112,10 @@ async function onOpenDoor(item: MyAppointment) {
 
 function onOpenDoorPending() {
   showToast('预约时间段内才能操作门禁')
+}
+
+function onOpenDoorUnconfirmed() {
+  showToast('预约确认后可用')
 }
 
 function toggleDetail(item: MyAppointment) {
@@ -196,6 +208,10 @@ onMounted(load)
                 <div class="passcode-pending-title">房门密码：暂未下发</div>
                 <div class="passcode-pending-sub">密码将在预约时间段前5分钟下发</div>
               </div>
+              <div v-else-if="passcodeUnconfirmedOf(item)" class="passcode-pending">
+                <div class="passcode-pending-title">房门密码：暂未下发</div>
+                <div class="passcode-pending-sub">预约确认后，密码将在预约时间段前5分钟下发</div>
+              </div>
               <div v-if="item.passcode && !isAfterWindow(item)" class="passcode-row">
                 <span class="passcode-label">房门密码</span>
                 <span class="passcode-value">{{ item.passcode }}</span>
@@ -217,6 +233,13 @@ onMounted(load)
                   v-else-if="doorPendingOf(item)"
                   class="action-btn action-btn--pending"
                   @click.stop="onOpenDoorPending"
+                >
+                  门禁开门
+                </van-button>
+                <van-button
+                  v-else-if="doorUnconfirmedOf(item)"
+                  class="action-btn action-btn--pending"
+                  @click.stop="onOpenDoorUnconfirmed"
                 >
                   门禁开门
                 </van-button>

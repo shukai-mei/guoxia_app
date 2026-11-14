@@ -302,9 +302,41 @@ describe('MyAppointments', () => {
     expect(wrapper.find('.action-btn--plain').exists()).toBe(true)
   })
 
-  it('does not show pending hint for pending status even with support', async () => {
+  it('shows unconfirmed hint and greyed door button for pending status with support', async () => {
     const pendingWithSupport = { ...futureConfirmed(true, true), id: 22, status: 'PENDING' as const }
     mockedList.mockResolvedValue([pendingWithSupport])
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.text()).toContain('房门密码：暂未下发')
+    expect(wrapper.text()).toContain('预约确认后，密码将在预约时间段前5分钟下发')
+    expect(wrapper.find('.passcode-row').exists()).toBe(false)
+    expect(wrapper.find('.action-btn--primary').exists()).toBe(false)
+    expect(wrapper.find('.action-btn--pending').exists()).toBe(true)
+  })
+
+  it('clicking unconfirmed greyed door button shows confirm toast and does not call api', async () => {
+    const pendingWithDoor = { ...futureConfirmed(true, false), id: 22, status: 'PENDING' as const }
+    mockedList.mockResolvedValue([pendingWithDoor])
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    await wrapper.find('.action-btn--pending').trigger('click')
+    expect(showToast).toHaveBeenCalledWith('预约确认后可用')
+    expect(mockedOpenDoor).not.toHaveBeenCalled()
+  })
+
+  it('does not show hint or greyed button for pending status without support', async () => {
+    const pendingNoSupport = { ...futureConfirmed(false, false), id: 22, status: 'PENDING' as const }
+    mockedList.mockResolvedValue([pendingNoSupport])
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('房门密码：暂未下发')
+    expect(wrapper.find('.action-btn--pending').exists()).toBe(false)
+    expect(wrapper.find('.action-btn--plain').exists()).toBe(true)
+  })
+
+  it('does not show hint or greyed button for rejected status even with support', async () => {
+    const rejectedWithSupport = { ...futureConfirmed(true, true), id: 22, status: 'REJECTED' as const, rejectReason: '时间不合适' }
+    mockedList.mockResolvedValue([rejectedWithSupport])
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     expect(wrapper.text()).not.toContain('房门密码：暂未下发')
