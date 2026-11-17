@@ -65,7 +65,7 @@ describe('BookingSuccess', () => {
     expect(info.text()).toContain('阳光公寓')
     expect(info.text()).toContain('地址')
     expect(info.text()).toContain('幸福路 1 号')
-    expect(wrapper.text()).toContain('客服微信号：guoxia')
+    expect(wrapper.text()).toContain('管家微信号：guoxia')
     expect(wrapper.find('img[src="https://signed/qr.png"]').exists()).toBe(true)
     expect(wrapper.find('img[src="https://signed/map.jpg"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('自助开启楼栋门禁、查看房门密码')

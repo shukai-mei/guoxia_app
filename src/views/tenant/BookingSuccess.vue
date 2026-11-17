@@ -117,7 +117,7 @@ onMounted(load)
           </div>
 
           <template v-if="wechat && (wechat.qrUrl || wechat.contact)">
-            <div class="section-title">提前添加客服微信</div>
+            <div class="section-title">提前添加管家微信</div>
             <div class="detail-card wechat-card">
               <van-image
                 v-if="wechat.qrUrl"
@@ -129,10 +129,10 @@ onMounted(load)
                 class="wechat-qr"
               />
               <div v-if="wechat.contact" class="wechat-contact">
-                客服微信号：{{ wechat.contact }}
+                管家微信号：{{ wechat.contact }}
               </div>
               <div class="wechat-hint">
-                请提前添加客服微信，预约时间段内可在我的预约中自助开启楼栋门禁、查看房门密码
+                请提前添加管家微信，预约时间段内可在我的预约中自助开启楼栋门禁、查看房门密码
               </div>
             </div>
           </template>
@@ -154,7 +154,7 @@ onMounted(load)
           </template>
 
           <div class="closing-tip">
-            看完房后请关好房门，如遇问题请联系客服
+            看完房后请关好房门，如遇问题请联系管家
           </div>
         </template>
       </div>
