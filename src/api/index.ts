@@ -6,6 +6,7 @@ import type {
   BuildingInput,
   DailyPassword,
   DailyPasswordInput,
+  FaqListView,
   MyAppointment,
   Property,
   PropertyInput,
@@ -13,6 +14,7 @@ import type {
   PropertyStatus,
   SlotList,
   UploadResult,
+  ViewingRulesView,
   WechatConfig,
   WechatConfigInput
 } from './types'
@@ -44,6 +46,14 @@ export function sendVerificationCode(phone: string): Promise<void> {
 
 export function getWechatConfig(): Promise<WechatConfig> {
   return http.get('/api/config/wechat').then((r) => r.data as WechatConfig)
+}
+
+export function getFaq(): Promise<FaqListView> {
+  return http.get('/api/config/faq').then((r) => r.data as FaqListView)
+}
+
+export function getViewingRules(): Promise<ViewingRulesView> {
+  return http.get('/api/config/viewing-rules').then((r) => r.data as ViewingRulesView)
 }
 
 export function exchangeWechatSession(code: string): Promise<{ openid: string }> {
@@ -137,4 +147,20 @@ export function adminGetWechatConfig(): Promise<WechatConfig> {
 
 export function adminUpdateWechatConfig(input: WechatConfigInput): Promise<WechatConfig> {
   return http.put('/admin/api/config/wechat', input).then((r) => r.data as WechatConfig)
+}
+
+export function adminGetFaq(): Promise<FaqListView> {
+  return http.get('/admin/api/config/faq').then((r) => r.data as FaqListView)
+}
+
+export function adminUpdateFaq(input: FaqListView): Promise<FaqListView> {
+  return http.put('/admin/api/config/faq', input).then((r) => r.data as FaqListView)
+}
+
+export function adminGetViewingRules(): Promise<ViewingRulesView> {
+  return http.get('/admin/api/config/viewing-rules').then((r) => r.data as ViewingRulesView)
+}
+
+export function adminUpdateViewingRules(input: ViewingRulesView): Promise<ViewingRulesView> {
+  return http.put('/admin/api/config/viewing-rules', input).then((r) => r.data as ViewingRulesView)
 }

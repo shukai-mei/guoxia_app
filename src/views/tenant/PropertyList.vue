@@ -79,23 +79,12 @@ function openDetail(property: Property) {
   router.push(`/properties/${property.id}`)
 }
 
-function goMyAppointments() {
-  router.push('/my-appointments')
-}
-
 onMounted(load)
 </script>
 
 <template>
   <div>
-    <van-nav-bar title="轻亭看房" />
-
-    <div class="my-entry" @click="goMyAppointments">
-      <div class="my-entry-card">
-        <div class="my-entry-title">我的预约</div>
-        <div class="my-entry-sub">看房时段 · 开门密码 · 门禁开门</div>
-      </div>
-    </div>
+    <van-nav-bar title="轻享看房" />
 
     <div class="filter-area">
       <van-search
@@ -158,29 +147,6 @@ onMounted(load)
 </template>
 
 <style scoped>
-.my-entry {
-  padding: 12px 12px 0;
-}
-
-.my-entry-card {
-  padding: 13px 14px;
-  border-radius: 14px;
-  background: var(--brand);
-  color: #fff;
-  cursor: pointer;
-}
-
-.my-entry-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.my-entry-sub {
-  margin-top: 3px;
-  font-size: 11px;
-  opacity: 0.85;
-}
-
 .filter-area {
   padding: 0 12px 12px;
 }

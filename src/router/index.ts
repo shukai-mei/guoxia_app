@@ -24,6 +24,11 @@ const router = createRouter({
       component: () => import('../views/tenant/MyAppointments.vue')
     },
     {
+      path: '/consultation',
+      name: 'tenant-consultation',
+      component: () => import('../views/tenant/Consultation.vue')
+    },
+    {
       path: '/admin',
       name: 'admin-home',
       component: () => import('../views/admin/AdminHome.vue')
@@ -72,6 +77,11 @@ const router = createRouter({
       path: '/admin/wechat-config',
       name: 'admin-wechat-config',
       component: () => import('../views/admin/WechatConfig.vue')
+    },
+    {
+      path: '/admin/content-config',
+      name: 'admin-content-config',
+      component: () => import('../views/admin/AdminContentConfig.vue')
     }
   ]
 })

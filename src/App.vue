@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import ContactFloating from './components/ContactFloating.vue'
+import TabBar from './components/TabBar.vue'
 
 const route = useRoute()
-const showContact = computed(() => !route.path.startsWith('/admin'))
+
+const showTabBar = computed(
+  () =>
+    ['/', '/my-appointments', '/consultation'].includes(route.path) ||
+    route.path.startsWith('/booking-success/')
+)
 </script>
 
 <template>
   <router-view />
-  <ContactFloating v-if="showContact" />
+  <TabBar v-if="showTabBar" />
 </template>

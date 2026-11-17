@@ -29,6 +29,10 @@ const addressMedia = computed(() =>
 
 const timeText = computed(() => `${date} ${slotStart}~${slotEnd}`)
 
+const addressText = computed(
+  () => property.value?.building?.address ?? property.value?.location ?? ''
+)
+
 async function load() {
   if (!validParams.value) {
     loading.value = false
@@ -80,10 +84,27 @@ onMounted(load)
 
         <template v-else>
           <div class="success-card">
-            <van-icon name="passed" class="success-icon" />
-            <div class="success-title">预约成功</div>
-            <div class="success-time">看房时间：{{ timeText }}</div>
-            <div v-if="property" class="success-property">房源：{{ property.title }}</div>
+            <div class="success-head">
+              <div class="success-check">
+                <van-icon name="passed" />
+              </div>
+              <div class="success-title">预约成功</div>
+              <div class="success-sub">请按时前往看房，祝您看房顺利</div>
+            </div>
+            <div class="success-info">
+              <div class="si">
+                <span class="k">看房时间</span>
+                <span class="v">{{ timeText }}</span>
+              </div>
+              <div v-if="property" class="si">
+                <span class="k">房源</span>
+                <span class="v">{{ property.title }}</span>
+              </div>
+              <div class="si">
+                <span class="k">地址</span>
+                <span class="v">{{ addressText }}</span>
+              </div>
+            </div>
             <van-button
               round
               block
@@ -152,35 +173,73 @@ onMounted(load)
   background: #fff;
   border: 0.5px solid var(--line);
   border-radius: 14px;
-  padding: 24px 16px;
+  padding: 8px 16px 20px;
+}
+
+.success-head {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  text-align: center;
+  padding: 26px 0 22px;
 }
 
-.success-icon {
-  font-size: 48px;
-  color: var(--brand);
+.success-check {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(245, 124, 42, 0.28);
+  margin-bottom: 16px;
+}
+
+.success-check :deep(.van-icon) {
+  font-size: 32px;
 }
 
 .success-title {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
 }
 
-.success-time {
-  font-size: 14px;
-  color: var(--ink);
+.success-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
 }
 
-.success-property {
+.success-info {
+  background: var(--brand-light);
+  border-radius: 12px;
+  padding: 12px 14px;
   font-size: 13px;
+}
+
+.si {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+}
+
+.si .k {
   color: var(--muted);
+  flex-shrink: 0;
+}
+
+.si .v {
+  color: var(--ink);
+  font-weight: 500;
+  text-align: right;
+  word-break: break-all;
 }
 
 .my-appointments-btn {
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 .detail-card {
@@ -219,11 +278,12 @@ onMounted(load)
 
 .closing-tip {
   margin: 16px;
-  padding: 12px;
-  border-radius: 8px;
-  background: #fffbe8;
-  color: #ed6a0c;
-  font-size: 13px;
+  padding: 10px 12px;
+  border: 0.5px solid #f6dfc4;
+  border-radius: 12px;
+  background: #fff7ee;
+  color: var(--brand-strong);
+  font-size: 12px;
   text-align: center;
 }
 </style>

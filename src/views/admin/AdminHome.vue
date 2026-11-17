@@ -8,7 +8,8 @@ const entries = [
   { title: '预约管理', desc: '处理看房预约申请', path: '/admin/appointments' },
   { title: '楼栋管理', desc: '楼栋信息与看房时段', path: '/admin/buildings' },
   { title: '每日密码', desc: '按房源按天维护临时密码', path: '/admin/daily-passwords' },
-  { title: '企微客服配置', desc: '客服微信号与二维码', path: '/admin/wechat-config' }
+  { title: '企微客服配置', desc: '客服微信号与二维码', path: '/admin/wechat-config' },
+  { title: '咨询内容配置', desc: '咨询常见问题与看房须知', path: '/admin/content-config' }
 ]
 
 function go(path: string) {

@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
 import { mountAt } from './helpers'
 import BookingSuccess from '../tenant/BookingSuccess.vue'
+import type { Property } from '../../api/types'
 
 vi.mock('vant', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vant')>()
@@ -20,45 +21,67 @@ const mockedGetWechatConfig = vi.mocked(getWechatConfig)
 
 const SUCCESS_PATH = '/booking-success/9?propertyId=5&date=2026-11-15&slotStart=10%3A00&slotEnd=12%3A00'
 
+const PROPERTY: Property = {
+  id: 5,
+  title: '阳光公寓',
+  location: '幸福路 1 号',
+  layout: '两室一厅',
+  area: 60,
+  rent: 3000,
+  description: null,
+  contact: '13800138000',
+  buildingId: 3,
+  building: {
+    id: 3,
+    name: 'A栋',
+    address: '幸福路 1 号',
+    hasElevator: true,
+    totalFloors: 12,
+    elevatorRatio: null,
+    deliveryFacilities: null,
+    livingExperience: null,
+    media: [{ key: '2026/map.jpg', url: 'https://signed/map.jpg', sortOrder: 0 }]
+  },
+  status: 'AVAILABLE',
+  media: []
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
-  mockedGetProperty.mockResolvedValue({
-    id: 5,
-    title: '阳光公寓',
-    location: '幸福路 1 号',
-    layout: '两室一厅',
-    area: 60,
-    rent: 3000,
-    description: null,
-    contact: '13800138000',
-    buildingId: 3,
-    building: {
-      id: 3,
-      name: 'A栋',
-      address: '幸福路 1 号',
-      hasElevator: true,
-      totalFloors: 12,
-      elevatorRatio: null,
-      deliveryFacilities: null,
-      livingExperience: null,
-      media: [{ key: '2026/map.jpg', url: 'https://signed/map.jpg', sortOrder: 0 }]
-    },
-    status: 'AVAILABLE',
-    media: []
-  })
+  mockedGetProperty.mockResolvedValue(PROPERTY)
   mockedGetWechatConfig.mockResolvedValue({ contact: 'guoxia', qrObjectKey: '2026/qr.png', qrUrl: 'https://signed/qr.png' })
 })
 
 describe('BookingSuccess', () => {
-  it('renders appointment time, wechat qr and address images', async () => {
+  it('renders info card rows, wechat qr and address images', async () => {
     const { wrapper } = await mountAt(BookingSuccess, SUCCESS_PATH)
     await flushPromises()
     expect(wrapper.text()).toContain('预约成功')
-    expect(wrapper.text()).toContain('看房时间：2026-11-15 10:00~12:00')
+    const info = wrapper.find('.success-info')
+    expect(info.exists()).toBe(true)
+    expect(info.text()).toContain('看房时间')
+    expect(info.text()).toContain('2026-11-15 10:00~12:00')
+    expect(info.text()).toContain('房源')
+    expect(info.text()).toContain('阳光公寓')
+    expect(info.text()).toContain('地址')
+    expect(info.text()).toContain('幸福路 1 号')
     expect(wrapper.text()).toContain('客服微信号：guoxia')
     expect(wrapper.find('img[src="https://signed/qr.png"]').exists()).toBe(true)
     expect(wrapper.find('img[src="https://signed/map.jpg"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('自助开启楼栋门禁、查看房门密码')
+  })
+
+  it('falls back to property location for address when building is absent', async () => {
+    mockedGetProperty.mockResolvedValue({
+      ...PROPERTY,
+      building: null,
+      location: '南山区测试大道 2 号'
+    })
+    const { wrapper } = await mountAt(BookingSuccess, SUCCESS_PATH)
+    await flushPromises()
+    const info = wrapper.find('.success-info')
+    expect(info.text()).toContain('南山区测试大道 2 号')
+    expect(info.text()).toContain('地址')
   })
 
   it('navigates to my appointments on button click', async () => {

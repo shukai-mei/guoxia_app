@@ -44,6 +44,16 @@ beforeEach(() => {
 })
 
 describe('PropertyList', () => {
+  it('shows new title and no my-appointments banner', async () => {
+    mockedList.mockResolvedValue([propertyOf(1, '阳光公寓')])
+    const { wrapper } = await mountAt(PropertyList, '/')
+    await flushPromises()
+    expect(wrapper.text()).toContain('轻享看房')
+    expect(wrapper.text()).not.toContain('轻亭看房')
+    expect(wrapper.find('.my-entry').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('看房时段 · 开门密码 · 门禁开门')
+  })
+
   it('renders property list with pull refresh wrapper', async () => {
     mockedList.mockResolvedValue([propertyOf(1, '阳光公寓'), propertyOf(2, '幸福里')])
     const { wrapper } = await mountAt(PropertyList, '/')

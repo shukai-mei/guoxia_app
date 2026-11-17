@@ -87,6 +87,19 @@ export interface WechatConfig {
   qrUrl: string | null
 }
 
+export interface FaqItem {
+  question: string
+  answer: string
+}
+
+export interface FaqListView {
+  items: FaqItem[]
+}
+
+export interface ViewingRulesView {
+  items: string[]
+}
+
 export interface Appointment {
   id: number
   propertyId: number

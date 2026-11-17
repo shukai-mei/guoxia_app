@@ -2,10 +2,11 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showSuccessToast, showToast } from 'vant'
-import { getMyAppointments, openDoor } from '../../api'
+import { getMyAppointments, getViewingRules, openDoor } from '../../api'
 import type { AppointmentStatus, MyAppointment } from '../../api/types'
 import { errorMessageOf } from '../../utils/error'
 import { formatDateTime } from '../../utils/format'
+import { copyText } from '../../utils/clipboard'
 
 const router = useRouter()
 
@@ -14,6 +15,7 @@ const loaded = ref(false)
 const refreshing = ref(false)
 const errorText = ref('')
 const appointments = ref<MyAppointment[]>([])
+const viewingRules = ref<string[]>([])
 const openingId = ref<number | null>(null)
 const expandedId = ref<number | null>(null)
 
@@ -39,14 +41,19 @@ function slotText(item: MyAppointment): string {
 async function load() {
   loading.value = true
   errorText.value = ''
-  try {
-    appointments.value = await getMyAppointments()
+  const [appointmentsResult, rulesResult] = await Promise.allSettled([
+    getMyAppointments(),
+    getViewingRules()
+  ])
+  if (appointmentsResult.status === 'fulfilled') {
+    appointments.value = appointmentsResult.value
     loaded.value = true
-  } catch (error) {
-    errorText.value = errorMessageOf(error)
-  } finally {
-    loading.value = false
+  } else {
+    errorText.value = errorMessageOf(appointmentsResult.reason)
   }
+  viewingRules.value =
+    rulesResult.status === 'fulfilled' ? rulesResult.value?.items ?? [] : []
+  loading.value = false
 }
 
 async function onRefresh() {
@@ -144,10 +151,10 @@ async function onCopyPasscode(item: MyAppointment) {
   if (!item.passcode) {
     return
   }
-  try {
-    await navigator.clipboard.writeText(item.passcode)
+  const ok = await copyText(item.passcode)
+  if (ok) {
     showSuccessToast('房门密码已复制')
-  } catch {
+  } else {
     selectFallback(item.passcode)
     showToast('复制失败，请手动复制房门密码')
   }
@@ -162,6 +169,21 @@ onMounted(load)
 
     <div class="page">
       <div class="page-content">
+        <div
+          v-if="loaded && !errorText && viewingRules.length > 0"
+          class="rules"
+        >
+          <div class="rt">
+            <span class="ic">!</span>
+            看房规则须知
+          </div>
+          <ul>
+            <li v-for="(rule, index) in viewingRules" :key="index">
+              {{ rule }}
+            </li>
+          </ul>
+        </div>
+
         <van-loading v-if="loading && !loaded" class="state-block">
           加载中...
         </van-loading>
@@ -280,6 +302,79 @@ onMounted(load)
   display: flex;
   justify-content: center;
   padding: 48px 0;
+}
+
+.rules {
+  background: linear-gradient(135deg, #fff7ee, #fef0e3);
+  border: 0.5px solid #f6dfc4;
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.rules::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--brand);
+}
+
+.rules .rt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-strong);
+  margin-bottom: 8px;
+}
+
+.rules .rt .ic {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--brand);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.rules ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rules li {
+  font-size: 12px;
+  color: var(--sub);
+  padding-left: 16px;
+  position: relative;
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.rules li:last-child {
+  margin-bottom: 0;
+}
+
+.rules li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
 }
 
 .appointment-list {

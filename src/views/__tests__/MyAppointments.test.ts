@@ -15,14 +15,16 @@ vi.mock('vant', async (importOriginal) => {
 
 vi.mock('../../api', () => ({
   getMyAppointments: vi.fn(),
+  getViewingRules: vi.fn(),
   openDoor: vi.fn()
 }))
 
 import { showSuccessToast, showToast } from 'vant'
-import { getMyAppointments, openDoor } from '../../api'
+import { getMyAppointments, getViewingRules, openDoor } from '../../api'
 import { formatDateTime } from '../../utils/format'
 
 const mockedList = vi.mocked(getMyAppointments)
+const mockedRules = vi.mocked(getViewingRules)
 const mockedOpenDoor = vi.mocked(openDoor)
 
 const CONFIRMED: MyAppointment = {
@@ -248,9 +250,32 @@ describe('MyAppointments', () => {
     expect(showSuccessToast).toHaveBeenCalledWith('房门密码已复制')
   })
 
+  it('copies passcode via execCommand fallback when clipboard write is denied', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+      configurable: true
+    })
+    Object.defineProperty(document, 'execCommand', {
+      value: vi.fn().mockReturnValue(true),
+      configurable: true
+    })
+    mockedList.mockResolvedValue([inWindowConfirmed()])
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    await wrapper.find('.passcode-row button').trigger('click')
+    await flushPromises()
+    expect(document.execCommand).toHaveBeenCalledWith('copy')
+    expect(showSuccessToast).toHaveBeenCalledWith('房门密码已复制')
+    expect(showToast).not.toHaveBeenCalled()
+  })
+
   it('falls back to text selection when clipboard fails', async () => {
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+      configurable: true
+    })
+    Object.defineProperty(document, 'execCommand', {
+      value: vi.fn().mockReturnValue(false),
       configurable: true
     })
     mockedList.mockResolvedValue([inWindowConfirmed()])
@@ -428,5 +453,38 @@ describe('MyAppointments', () => {
     expect(router.currentRoute.value.name).toBe('tenant-property-detail')
     expect(router.currentRoute.value.params.id).toBe('5')
     expect(router.currentRoute.value.query.from).toBe('appointment')
+  })
+
+  it('shows viewing rules board with title and rule items', async () => {
+    mockedList.mockResolvedValue([inWindowConfirmed()])
+    mockedRules.mockResolvedValue({
+      items: ['看房期间请勿破坏房内设施', '如有满意房源，可联系管家走签约流程']
+    })
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    const board = wrapper.find('.rules')
+    expect(board.exists()).toBe(true)
+    expect(board.text()).toContain('看房规则须知')
+    expect(board.findAll('li').length).toBe(2)
+    expect(board.text()).toContain('看房期间请勿破坏房内设施')
+    expect(board.text()).toContain('如有满意房源，可联系管家走签约流程')
+  })
+
+  it('hides rules board when rules request fails', async () => {
+    mockedList.mockResolvedValue([inWindowConfirmed()])
+    mockedRules.mockRejectedValue(new Error('网络异常'))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.find('.rules').exists()).toBe(false)
+    expect(wrapper.findAll('.appointment-card').length).toBe(1)
+  })
+
+  it('hides rules board when rules list is empty', async () => {
+    mockedList.mockResolvedValue([inWindowConfirmed()])
+    mockedRules.mockResolvedValue({ items: [] })
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.find('.rules').exists()).toBe(false)
+    expect(wrapper.findAll('.appointment-card').length).toBe(1)
   })
 })

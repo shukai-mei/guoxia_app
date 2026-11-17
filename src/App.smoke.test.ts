@@ -9,7 +9,7 @@ vi.mock('vue-router', () => ({
 
 const STUBS = {
   RouterView: { template: '<div class="router-view-stub" />' },
-  ContactFloating: { template: '<div class="contact-floating-stub" />' }
+  TabBar: { template: '<div class="tab-bar-stub" />' }
 }
 
 function mountApp() {
@@ -27,15 +27,21 @@ describe('App', () => {
     expect(wrapper.find('.router-view-stub').exists()).toBe(true)
   })
 
-  it('shows contact floating on tenant pages', () => {
-    useRouteMock.mockReturnValue({ path: '/my-appointments' })
-    const wrapper = mountApp()
-    expect(wrapper.find('.contact-floating-stub').exists()).toBe(true)
-  })
+  it.each(['/', '/my-appointments', '/consultation', '/booking-success/123'])(
+    'shows tab bar on tenant page %s',
+    (path) => {
+      useRouteMock.mockReturnValue({ path })
+      const wrapper = mountApp()
+      expect(wrapper.find('.tab-bar-stub').exists()).toBe(true)
+    }
+  )
 
-  it('hides contact floating on admin pages', () => {
-    useRouteMock.mockReturnValue({ path: '/admin/buildings' })
-    const wrapper = mountApp()
-    expect(wrapper.find('.contact-floating-stub').exists()).toBe(false)
-  })
+  it.each(['/properties/123', '/admin', '/admin/buildings'])(
+    'hides tab bar on %s',
+    (path) => {
+      useRouteMock.mockReturnValue({ path })
+      const wrapper = mountApp()
+      expect(wrapper.find('.tab-bar-stub').exists()).toBe(false)
+    }
+  )
 })
