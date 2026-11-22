@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { showSuccessToast, showToast } from 'vant'
+import type { ListInstance } from 'vant'
 import {
   adminListAppointments,
   confirmAppointment,
@@ -29,10 +30,12 @@ const CHANNEL_TEXT: Record<string, string> = {
   AUTO: '自动通过'
 }
 
+const listRef = ref<ListInstance | null>(null)
 const loading = ref(false)
-const loaded = ref(false)
-const errorText = ref('')
+const finished = ref(false)
+const listError = ref(false)
 const appointments = ref<Appointment[]>([])
+const page = ref(1)
 
 const rejecting = ref<Appointment | null>(null)
 const rejectReason = ref('')
@@ -72,28 +75,47 @@ function slotText(item: Appointment): string {
   return `${formatDateTime(item.slotStart)} ~ ${formatTime(item.slotEnd)}`
 }
 
-async function load() {
-  loading.value = true
-  errorText.value = ''
+async function fetchPage() {
   try {
-    appointments.value = await adminListAppointments()
-    loaded.value = true
-  } catch (error) {
-    errorText.value = errorMessageOf(error)
+    const result = await adminListAppointments(page.value)
+    appointments.value.push(...result.items)
+    page.value += 1
+    finished.value = !result.hasMore
+    listError.value = false
+  } catch {
+    listError.value = true
   } finally {
     loading.value = false
   }
+}
+
+function onLoad() {
+  fetchPage()
+}
+
+function resetPage() {
+  appointments.value = []
+  page.value = 1
+  finished.value = false
+  listError.value = false
+  loading.value = false
+}
+
+async function reloadFromFirst() {
+  resetPage()
+  await nextTick()
+  listRef.value?.check()
 }
 
 async function onConfirm(item: Appointment) {
   try {
     await confirmAppointment(item.id)
     showSuccessToast('已确认')
-    load()
+    reloadFromFirst()
   } catch (error) {
     showToast(errorMessageOf(error))
     if (error instanceof ApiError && error.code === 409) {
-      load()
+      reloadFromFirst()
     }
   }
 }
@@ -117,12 +139,12 @@ async function onRejectSubmit() {
     await rejectAppointment(item.id, rejectReason.value.trim())
     showSuccessToast('已拒绝')
     rejecting.value = null
-    load()
+    reloadFromFirst()
   } catch (error) {
     showToast(errorMessageOf(error))
     if (error instanceof ApiError && error.code === 409) {
       rejecting.value = null
-      load()
+      reloadFromFirst()
     }
   } finally {
     rejectSubmitting.value = false
@@ -134,15 +156,13 @@ async function onResend(item: Appointment) {
   try {
     await resendAppointmentSms(item.id)
     showSuccessToast('已重发')
-    load()
+    reloadFromFirst()
   } catch (error) {
     showToast(errorMessageOf(error))
   } finally {
     resendingId.value = null
   }
 }
-
-onMounted(load)
 </script>
 
 <template>
@@ -151,17 +171,22 @@ onMounted(load)
 
     <div class="page">
       <div class="page-content">
-        <van-loading v-if="loading && !loaded" class="state-block" color="#1989fa">
-          加载中...
-        </van-loading>
+        <van-list
+          ref="listRef"
+          v-model:loading="loading"
+          :finished="finished"
+          :finished-text="appointments.length === 0 ? '' : '没有更多了'"
+          :error="listError"
+          error-text="加载失败，点击重试"
+          @update:error="listError = $event"
+          @load="onLoad"
+        >
+          <van-empty
+            v-if="finished && appointments.length === 0"
+            description="暂无预约申请"
+          />
 
-        <van-empty v-else-if="errorText" image="error" :description="errorText">
-          <van-button size="small" type="primary" @click="load">重试</van-button>
-        </van-empty>
-
-        <van-empty v-else-if="loaded && appointments.length === 0" description="暂无预约申请" />
-
-        <div v-else class="appointment-list">
+          <div v-else class="appointment-list">
           <div v-for="item in appointments" :key="item.id" class="appointment-card">
             <div class="appointment-header">
               <span class="appointment-name">{{ item.tenantName }}</span>
@@ -213,7 +238,8 @@ onMounted(load)
               </van-button>
             </div>
           </div>
-        </div>
+          </div>
+        </van-list>
       </div>
     </div>
 
@@ -246,12 +272,6 @@ onMounted(load)
 </template>
 
 <style scoped>
-.state-block {
-  display: flex;
-  justify-content: center;
-  padding: 48px 0;
-}
-
 .appointment-list {
   display: flex;
   flex-direction: column;

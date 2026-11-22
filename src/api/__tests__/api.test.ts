@@ -146,14 +146,37 @@ describe('tenant api', () => {
     })
   })
 
-  it('getMyAppointments GET /api/me/appointments', async () => {
+  it('getMyAppointments GET /api/me/appointments parses PageResult with page param', async () => {
     mock
-      .onGet('/api/me/appointments')
-      .reply(...ok([{ id: 1, propertyTitle: '阳光公寓', status: 'CONFIRMED', canOpenDoor: true }]))
+      .onGet('/api/me/appointments', { params: { page: 2 } })
+      .reply(...ok({ items: [], page: 2, size: 20, hasMore: false }))
+    mock.onGet('/api/me/appointments').reply(
+      ...ok({
+        items: [{ id: 1, propertyTitle: '阳光公寓', status: 'CONFIRMED', canOpenDoor: true }],
+        page: 1,
+        size: 20,
+        hasMore: false
+      })
+    )
+
+    const page2 = await getMyAppointments(2)
+    expect(page2).toEqual({ items: [], page: 2, size: 20, hasMore: false })
+    const paged = mock.history.get.find(
+      (r) => r.url === '/api/me/appointments' && r.params && r.params.page === 2
+    )
+    expect(paged).toBeDefined()
+
     const result = await getMyAppointments()
-    expect(result).toEqual([
-      { id: 1, propertyTitle: '阳光公寓', status: 'CONFIRMED', canOpenDoor: true }
-    ])
+    expect(result).toEqual({
+      items: [{ id: 1, propertyTitle: '阳光公寓', status: 'CONFIRMED', canOpenDoor: true }],
+      page: 1,
+      size: 20,
+      hasMore: false
+    })
+    const request = mock.history.get.find(
+      (r) => r.url === '/api/me/appointments' && (!r.params || Object.keys(r.params).length === 0)
+    )
+    expect(request).toBeDefined()
   })
 
   it('openDoor POST /api/me/appointments/{id}/open-door', async () => {
@@ -311,10 +334,19 @@ describe('admin building api', () => {
 })
 
 describe('admin appointment api', () => {
-  it('adminListAppointments GET /admin/api/appointments', async () => {
-    mock.onGet('/admin/api/appointments').reply(...ok([]))
-    await adminListAppointments()
-    expect(mock.history.get.some((r) => r.url === '/admin/api/appointments')).toBe(true)
+  it('adminListAppointments GET /admin/api/appointments parses PageResult with page param', async () => {
+    mock.onGet('/admin/api/appointments').reply(...ok({ items: [], page: 1, size: 20, hasMore: false }))
+    const result = await adminListAppointments()
+    expect(result).toEqual({ items: [], page: 1, size: 20, hasMore: false })
+
+    mock
+      .onGet('/admin/api/appointments', { params: { page: 3 } })
+      .reply(...ok({ items: [], page: 3, size: 20, hasMore: false }))
+    await adminListAppointments(3)
+    const paged = mock.history.get.find(
+      (r) => r.url === '/admin/api/appointments' && r.params && r.params.page === 3
+    )
+    expect(paged).toBeDefined()
   })
 
   it('confirmAppointment PUT /admin/api/appointments/{id}/confirm', async () => {

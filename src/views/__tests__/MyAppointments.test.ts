@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
 import { mountAt } from './helpers'
 import MyAppointments from '../tenant/MyAppointments.vue'
-import type { MyAppointment } from '../../api/types'
+import type { MyAppointment, PageResult } from '../../api/types'
 
 vi.mock('vant', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vant')>()
@@ -26,6 +26,14 @@ import { formatDateTime } from '../../utils/format'
 const mockedList = vi.mocked(getMyAppointments)
 const mockedRules = vi.mocked(getViewingRules)
 const mockedOpenDoor = vi.mocked(openDoor)
+
+function pageResult(
+  items: MyAppointment[],
+  hasMore: boolean,
+  page = 1
+): PageResult<MyAppointment> {
+  return { items, page, size: 20, hasMore }
+}
 
 const CONFIRMED: MyAppointment = {
   id: 11,
@@ -140,7 +148,9 @@ function endedAppointment(
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
+  mockedList.mockResolvedValue(pageResult([], false))
+  mockedRules.mockResolvedValue({ items: [] })
   Object.defineProperty(navigator, 'clipboard', {
     value: { writeText: vi.fn().mockResolvedValue(undefined) },
     configurable: true
@@ -150,7 +160,7 @@ beforeEach(() => {
 describe('MyAppointments', () => {
   it('renders appointment list with status mapping and time range', async () => {
     const confirmed = inWindowConfirmed()
-    mockedList.mockResolvedValue([confirmed, PENDING, REJECTED])
+    mockedList.mockResolvedValue(pageResult([confirmed, PENDING, REJECTED], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     const text = wrapper.text()
@@ -169,7 +179,7 @@ describe('MyAppointments', () => {
   })
 
   it('shows empty state when no appointments', async () => {
-    mockedList.mockResolvedValue([])
+    mockedList.mockResolvedValue(pageResult([], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     expect(wrapper.text()).toContain('暂无预约记录')
@@ -179,19 +189,20 @@ describe('MyAppointments', () => {
     mockedList.mockRejectedValueOnce(new Error('网络异常，请稍后重试'))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
-    expect(wrapper.text()).toContain('网络异常，请稍后重试')
-    mockedList.mockResolvedValueOnce([PENDING])
-    await wrapper.find('.van-empty button').trigger('click')
+    expect(wrapper.text()).toContain('加载失败，点击重试')
+    mockedList.mockResolvedValueOnce(pageResult([PENDING], false))
+    await wrapper.find('.van-list__error-text').trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('待处理')
+    expect(wrapper.text()).not.toContain('加载失败，点击重试')
   })
 
   it('pull refresh reloads list', async () => {
-    mockedList.mockResolvedValueOnce([PENDING])
+    mockedList.mockResolvedValueOnce(pageResult([PENDING], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     expect(wrapper.findAll('.appointment-card').length).toBe(1)
-    mockedList.mockResolvedValueOnce([PENDING, CONFIRMED])
+    mockedList.mockResolvedValueOnce(pageResult([PENDING, CONFIRMED], false))
     await (
       wrapper.vm as unknown as { onRefresh: () => Promise<void> }
     ).onRefresh()
@@ -199,8 +210,73 @@ describe('MyAppointments', () => {
     expect(wrapper.findAll('.appointment-card').length).toBe(2)
   })
 
+  it('loads first page on mount with page param 1', async () => {
+    mockedList.mockResolvedValueOnce(pageResult([inWindowConfirmed()], false))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(mockedList).toHaveBeenNthCalledWith(1, 1)
+    expect(wrapper.findAll('.appointment-card').length).toBe(1)
+  })
+
+  it('appends next page while hasMore and stops when finished', async () => {
+    mockedList
+      .mockResolvedValueOnce(pageResult([inWindowConfirmed()], true))
+      .mockResolvedValueOnce(pageResult([PENDING], false))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(mockedList).toHaveBeenNthCalledWith(1, 1)
+    expect(mockedList).toHaveBeenNthCalledWith(2, 2)
+    expect(wrapper.findAll('.appointment-card').length).toBe(2)
+    expect(wrapper.text()).toContain('5678')
+    expect(wrapper.text()).toContain('待处理')
+  })
+
+  it('shows finished text when last page has no more', async () => {
+    mockedList.mockResolvedValueOnce(pageResult([inWindowConfirmed()], false))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.text()).toContain('没有更多了')
+  })
+
+  it('keeps loaded items and shows retry when next page fails', async () => {
+    mockedList
+      .mockResolvedValueOnce(pageResult([inWindowConfirmed()], true))
+      .mockRejectedValueOnce(new Error('网络异常'))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.findAll('.appointment-card').length).toBe(1)
+    expect(wrapper.text()).toContain('加载失败，点击重试')
+
+    await wrapper.find('.van-list__error-text').trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('.appointment-card').length).toBe(1)
+    expect(wrapper.text()).not.toContain('加载失败，点击重试')
+  })
+
+  it('refresh resets to first page and can page again', async () => {
+    mockedList
+      .mockResolvedValueOnce(pageResult([inWindowConfirmed()], true))
+      .mockResolvedValueOnce(pageResult([PENDING], false))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.findAll('.appointment-card').length).toBe(2)
+
+    mockedList
+      .mockResolvedValueOnce(pageResult([futureConfirmed(true, true)], true))
+      .mockResolvedValueOnce(pageResult([PENDING], false))
+    await (
+      wrapper.vm as unknown as { onRefresh: () => Promise<void> }
+    ).onRefresh()
+    await flushPromises()
+    expect(mockedList).toHaveBeenNthCalledWith(3, 1)
+    expect(mockedList).toHaveBeenNthCalledWith(4, 2)
+    expect(wrapper.findAll('.appointment-card').length).toBe(2)
+    expect(wrapper.text()).toContain('房门密码：暂未下发')
+    expect(wrapper.text()).not.toContain('5678')
+  })
+
   it('shows open door button only for canOpenDoor records', async () => {
-    mockedList.mockResolvedValue([inWindowConfirmed(), PENDING])
+    mockedList.mockResolvedValue(pageResult([inWindowConfirmed(), PENDING], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     expect(wrapper.findAll('.action-btn--primary').length).toBe(1)
@@ -208,7 +284,7 @@ describe('MyAppointments', () => {
 
   it('opens door successfully with loading state during request', async () => {
     let resolveDoor: (value: void) => void = () => undefined
-    mockedList.mockResolvedValue([inWindowConfirmed()])
+    mockedList.mockResolvedValue(pageResult([inWindowConfirmed()], false))
     mockedOpenDoor.mockImplementation(
       () =>
         new Promise<void>((resolve) => {
@@ -229,7 +305,7 @@ describe('MyAppointments', () => {
   })
 
   it('shows backend message on open door failure', async () => {
-    mockedList.mockResolvedValue([inWindowConfirmed()])
+    mockedList.mockResolvedValue(pageResult([inWindowConfirmed()], false))
     mockedOpenDoor.mockRejectedValue(new Error('未到开门时间'))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
@@ -239,7 +315,7 @@ describe('MyAppointments', () => {
   })
 
   it('copies passcode via clipboard and shows success toast', async () => {
-    mockedList.mockResolvedValue([inWindowConfirmed()])
+    mockedList.mockResolvedValue(pageResult([inWindowConfirmed()], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     expect(wrapper.text()).toContain('房门密码')
@@ -259,7 +335,7 @@ describe('MyAppointments', () => {
       value: vi.fn().mockReturnValue(true),
       configurable: true
     })
-    mockedList.mockResolvedValue([inWindowConfirmed()])
+    mockedList.mockResolvedValue(pageResult([inWindowConfirmed()], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     await wrapper.find('.passcode-row button').trigger('click')
@@ -278,7 +354,7 @@ describe('MyAppointments', () => {
       value: vi.fn().mockReturnValue(false),
       configurable: true
     })
-    mockedList.mockResolvedValue([inWindowConfirmed()])
+    mockedList.mockResolvedValue(pageResult([inWindowConfirmed()], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     await wrapper.find('.passcode-row button').trigger('click')
@@ -290,14 +366,14 @@ describe('MyAppointments', () => {
   })
 
   it('does not render passcode area when passcode absent', async () => {
-    mockedList.mockResolvedValue([PENDING])
+    mockedList.mockResolvedValue(pageResult([PENDING], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     expect(wrapper.find('.passcode-row').exists()).toBe(false)
   })
 
   it('shows passcode pending hint and greyed open door before window', async () => {
-    mockedList.mockResolvedValue([futureConfirmed(true, true)])
+    mockedList.mockResolvedValue(pageResult([futureConfirmed(true, true)], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     expect(wrapper.text()).toContain('房门密码：暂未下发')
@@ -309,7 +385,7 @@ describe('MyAppointments', () => {
   })
 
   it('clicking greyed open door shows window toast and does not call api', async () => {
-    mockedList.mockResolvedValue([futureConfirmed(true, false)])
+    mockedList.mockResolvedValue(pageResult([futureConfirmed(true, false)], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     await wrapper.find('.action-btn--pending').trigger('click')
@@ -318,7 +394,7 @@ describe('MyAppointments', () => {
   })
 
   it('hides pending hint and greyed button without door or lock support', async () => {
-    mockedList.mockResolvedValue([futureConfirmed(false, false)])
+    mockedList.mockResolvedValue(pageResult([futureConfirmed(false, false)], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     expect(wrapper.text()).not.toContain('房门密码：暂未下发')
@@ -329,7 +405,7 @@ describe('MyAppointments', () => {
 
   it('shows unconfirmed hint and greyed door button for pending status with support', async () => {
     const pendingWithSupport = { ...futureConfirmed(true, true), id: 22, status: 'PENDING' as const }
-    mockedList.mockResolvedValue([pendingWithSupport])
+    mockedList.mockResolvedValue(pageResult([pendingWithSupport], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     expect(wrapper.text()).toContain('房门密码：暂未下发')
@@ -341,7 +417,7 @@ describe('MyAppointments', () => {
 
   it('clicking unconfirmed greyed door button shows confirm toast and does not call api', async () => {
     const pendingWithDoor = { ...futureConfirmed(true, false), id: 22, status: 'PENDING' as const }
-    mockedList.mockResolvedValue([pendingWithDoor])
+    mockedList.mockResolvedValue(pageResult([pendingWithDoor], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     await wrapper.find('.action-btn--pending').trigger('click')
@@ -351,7 +427,7 @@ describe('MyAppointments', () => {
 
   it('does not show hint or greyed button for pending status without support', async () => {
     const pendingNoSupport = { ...futureConfirmed(false, false), id: 22, status: 'PENDING' as const }
-    mockedList.mockResolvedValue([pendingNoSupport])
+    mockedList.mockResolvedValue(pageResult([pendingNoSupport], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     expect(wrapper.text()).not.toContain('房门密码：暂未下发')
@@ -361,7 +437,7 @@ describe('MyAppointments', () => {
 
   it('does not show hint or greyed button for rejected status even with support', async () => {
     const rejectedWithSupport = { ...futureConfirmed(true, true), id: 22, status: 'REJECTED' as const, rejectReason: '时间不合适' }
-    mockedList.mockResolvedValue([rejectedWithSupport])
+    mockedList.mockResolvedValue(pageResult([rejectedWithSupport], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     expect(wrapper.text()).not.toContain('房门密码：暂未下发')
@@ -369,11 +445,16 @@ describe('MyAppointments', () => {
   })
 
   it('greys out ended records and hides all operations', async () => {
-    mockedList.mockResolvedValue([
-      endedAppointment('CONFIRMED', { passcode: '2468', canOpenDoor: true }),
-      endedAppointment('PENDING'),
-      endedAppointment('REJECTED', { rejectReason: '时间不合适' })
-    ])
+    mockedList.mockResolvedValue(
+      pageResult(
+        [
+          endedAppointment('CONFIRMED', { passcode: '2468', canOpenDoor: true }),
+          endedAppointment('PENDING'),
+          endedAppointment('REJECTED', { rejectReason: '时间不合适' })
+        ],
+        false
+      )
+    )
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     const cards = wrapper.findAll('.appointment-card')
@@ -389,7 +470,9 @@ describe('MyAppointments', () => {
   })
 
   it('does not grey out upcoming or in-window records', async () => {
-    mockedList.mockResolvedValue([inWindowConfirmed(), futureConfirmed(true, true)])
+    mockedList.mockResolvedValue(
+      pageResult([inWindowConfirmed(), futureConfirmed(true, true)], false)
+    )
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     for (const card of wrapper.findAll('.appointment-card')) {
@@ -399,7 +482,7 @@ describe('MyAppointments', () => {
   })
 
   it('clicking card expands and collapses address details', async () => {
-    mockedList.mockResolvedValue([inWindowConfirmed()])
+    mockedList.mockResolvedValue(pageResult([inWindowConfirmed()], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     expect(wrapper.find('.card-detail').exists()).toBe(false)
@@ -417,14 +500,19 @@ describe('MyAppointments', () => {
   })
 
   it('shows placeholder for missing address fields', async () => {
-    mockedList.mockResolvedValue([
-      inWindowConfirmed({
-        buildingName: null,
-        buildingAddress: null,
-        propertyLocation: null,
-        propertyLayout: null
-      })
-    ])
+    mockedList.mockResolvedValue(
+      pageResult(
+        [
+          inWindowConfirmed({
+            buildingName: null,
+            buildingAddress: null,
+            propertyLocation: null,
+            propertyLayout: null
+          })
+        ],
+        false
+      )
+    )
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     await wrapper.find('.appointment-card').trigger('click')
@@ -432,7 +520,7 @@ describe('MyAppointments', () => {
   })
 
   it('buttons inside card do not toggle details', async () => {
-    mockedList.mockResolvedValue([inWindowConfirmed()])
+    mockedList.mockResolvedValue(pageResult([inWindowConfirmed()], false))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     await wrapper.find('.passcode-row button').trigger('click')
@@ -445,7 +533,7 @@ describe('MyAppointments', () => {
   })
 
   it('detail button navigates to property detail page', async () => {
-    mockedList.mockResolvedValue([inWindowConfirmed()])
+    mockedList.mockResolvedValue(pageResult([inWindowConfirmed()], false))
     const { wrapper, router } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
     await wrapper.find('.action-btn--plain').trigger('click')
@@ -456,7 +544,7 @@ describe('MyAppointments', () => {
   })
 
   it('shows viewing rules board with title and rule items', async () => {
-    mockedList.mockResolvedValue([inWindowConfirmed()])
+    mockedList.mockResolvedValue(pageResult([inWindowConfirmed()], false))
     mockedRules.mockResolvedValue({
       items: ['看房期间请勿破坏房内设施', '如有满意房源，可联系管家走签约流程']
     })
@@ -471,7 +559,7 @@ describe('MyAppointments', () => {
   })
 
   it('hides rules board when rules request fails', async () => {
-    mockedList.mockResolvedValue([inWindowConfirmed()])
+    mockedList.mockResolvedValue(pageResult([inWindowConfirmed()], false))
     mockedRules.mockRejectedValue(new Error('网络异常'))
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()
@@ -480,7 +568,7 @@ describe('MyAppointments', () => {
   })
 
   it('hides rules board when rules list is empty', async () => {
-    mockedList.mockResolvedValue([inWindowConfirmed()])
+    mockedList.mockResolvedValue(pageResult([inWindowConfirmed()], false))
     mockedRules.mockResolvedValue({ items: [] })
     const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
     await flushPromises()

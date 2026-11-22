@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showSuccessToast, showToast } from 'vant'
+import type { ListInstance } from 'vant'
 import { getMyAppointments, getViewingRules, openDoor } from '../../api'
 import type { AppointmentStatus, MyAppointment } from '../../api/types'
 import { errorMessageOf } from '../../utils/error'
@@ -10,14 +11,18 @@ import { copyText } from '../../utils/clipboard'
 
 const router = useRouter()
 
+const listRef = ref<ListInstance | null>(null)
 const loading = ref(false)
-const loaded = ref(false)
 const refreshing = ref(false)
-const errorText = ref('')
+const finished = ref(false)
+const listError = ref(false)
 const appointments = ref<MyAppointment[]>([])
+const page = ref(1)
 const viewingRules = ref<string[]>([])
 const openingId = ref<number | null>(null)
 const expandedId = ref<number | null>(null)
+
+let pendingLoad: Promise<void> | null = null
 
 const STATUS_TEXT: Record<AppointmentStatus, string> = {
   PENDING: '待处理',
@@ -38,37 +43,49 @@ function slotText(item: MyAppointment): string {
   return `${start}~${end.slice(11)}`
 }
 
-async function load() {
-  loading.value = true
-  errorText.value = ''
-  const [appointmentsResult, rulesResult] = await Promise.allSettled([
-    getMyAppointments(),
-    getViewingRules()
-  ])
-  if (appointmentsResult.status === 'fulfilled') {
-    appointments.value = appointmentsResult.value
-    loaded.value = true
-  } else {
-    errorText.value = errorMessageOf(appointmentsResult.reason)
+async function fetchPage() {
+  try {
+    const result = await getMyAppointments(page.value)
+    appointments.value.push(...result.items)
+    page.value += 1
+    finished.value = !result.hasMore
+    listError.value = false
+  } catch (error) {
+    listError.value = true
+  } finally {
+    loading.value = false
   }
-  viewingRules.value =
-    rulesResult.status === 'fulfilled' ? rulesResult.value?.items ?? [] : []
+}
+
+function onLoad() {
+  pendingLoad = fetchPage()
+}
+
+function resetPage() {
+  appointments.value = []
+  page.value = 1
+  finished.value = false
+  listError.value = false
   loading.value = false
 }
 
 async function onRefresh() {
   refreshing.value = true
+  resetPage()
+  await nextTick()
+  listRef.value?.check()
+  await nextTick()
+  if (pendingLoad) {
+    await pendingLoad
+  }
+  refreshing.value = false
+}
+
+async function loadRules() {
   try {
-    appointments.value = await getMyAppointments()
-    errorText.value = ''
-  } catch (error) {
-    if (appointments.value.length === 0) {
-      errorText.value = errorMessageOf(error)
-    } else {
-      showToast(errorMessageOf(error))
-    }
-  } finally {
-    refreshing.value = false
+    viewingRules.value = (await getViewingRules()).items ?? []
+  } catch {
+    viewingRules.value = []
   }
 }
 
@@ -160,7 +177,7 @@ async function onCopyPasscode(item: MyAppointment) {
   }
 }
 
-onMounted(load)
+onMounted(loadRules)
 </script>
 
 <template>
@@ -170,7 +187,7 @@ onMounted(load)
     <div class="page">
       <div class="page-content">
         <div
-          v-if="loaded && !errorText && viewingRules.length > 0"
+          v-if="viewingRules.length > 0"
           class="rules"
         >
           <div class="rt">
@@ -184,21 +201,23 @@ onMounted(load)
           </ul>
         </div>
 
-        <van-loading v-if="loading && !loaded" class="state-block">
-          加载中...
-        </van-loading>
+        <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
+          <van-list
+            ref="listRef"
+            v-model:loading="loading"
+            :finished="finished"
+            :finished-text="appointments.length === 0 ? '' : '没有更多了'"
+            :error="listError"
+            error-text="加载失败，点击重试"
+            @update:error="listError = $event"
+            @load="onLoad"
+          >
+            <van-empty
+              v-if="appointments.length === 0"
+              description="暂无预约记录"
+            />
 
-        <van-empty v-else-if="errorText" image="error" :description="errorText">
-          <van-button size="small" type="primary" @click="load">重试</van-button>
-        </van-empty>
-
-        <van-pull-refresh v-else v-model="refreshing" @refresh="onRefresh">
-          <van-empty
-            v-if="loaded && appointments.length === 0"
-            description="暂无预约记录"
-          />
-
-          <div v-else class="appointment-list">
+            <div v-else class="appointment-list">
             <div
               v-for="item in appointments"
               :key="item.id"
@@ -290,7 +309,8 @@ onMounted(load)
                 </div>
               </div>
             </div>
-          </div>
+            </div>
+          </van-list>
         </van-pull-refresh>
       </div>
     </div>
@@ -298,12 +318,6 @@ onMounted(load)
 </template>
 
 <style scoped>
-.state-block {
-  display: flex;
-  justify-content: center;
-  padding: 48px 0;
-}
-
 .rules {
   background: linear-gradient(135deg, #fff7ee, #fef0e3);
   border: 0.5px solid #f6dfc4;

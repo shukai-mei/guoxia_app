@@ -8,6 +8,7 @@ import type {
   DailyPasswordInput,
   FaqListView,
   MyAppointment,
+  PageResult,
   Property,
   PropertyInput,
   PropertyQuery,
@@ -60,8 +61,10 @@ export function exchangeWechatSession(code: string): Promise<{ openid: string }>
   return http.post('/api/wechat/session', { code }).then((r) => r.data as { openid: string })
 }
 
-export function getMyAppointments(): Promise<MyAppointment[]> {
-  return http.get('/api/me/appointments').then((r) => r.data as MyAppointment[])
+export function getMyAppointments(page?: number): Promise<PageResult<MyAppointment>> {
+  return http
+    .get('/api/me/appointments', { params: page === undefined ? undefined : { page } })
+    .then((r) => r.data as PageResult<MyAppointment>)
 }
 
 export function openDoor(id: number | string): Promise<void> {
@@ -125,8 +128,10 @@ export function adminDeleteBuilding(id: number | string): Promise<void> {
   return http.delete(`/admin/api/buildings/${id}`).then(() => undefined)
 }
 
-export function adminListAppointments(): Promise<Appointment[]> {
-  return http.get('/admin/api/appointments').then((r) => r.data as Appointment[])
+export function adminListAppointments(page?: number): Promise<PageResult<Appointment>> {
+  return http
+    .get('/admin/api/appointments', { params: page === undefined ? undefined : { page } })
+    .then((r) => r.data as PageResult<Appointment>)
 }
 
 export function confirmAppointment(id: number | string): Promise<void> {

@@ -205,6 +205,52 @@ describe('PropertyDetail', () => {
     expect(mockedGetSlots).toHaveBeenCalledTimes(2)
   })
 
+  it('shows same-property rejection message from backend', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    mockedGetSlots.mockResolvedValue({
+      propertyId: 5,
+      buildingId: 3,
+      buildingName: 'A栋',
+      supported: true,
+      slots: [{ start: '10:00', end: '12:00', available: true }]
+    })
+    mockedSubmitAppointment.mockRejectedValue(new ApiError(409, '该房源已有未结束的预约'))
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    await wrapper.find('input[name="name"]').setValue('张三')
+    await wrapper.find('input[name="phone"]').setValue('13800138000')
+    await wrapper.find('input[name="code"]').setValue('123456')
+    await wrapper.find('.slot-chip').trigger('click')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(showToast).toHaveBeenCalledWith('该房源已有未结束的预约')
+  })
+
+  it('shows five-property limit rejection message from backend', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    mockedGetSlots.mockResolvedValue({
+      propertyId: 5,
+      buildingId: 3,
+      buildingName: 'A栋',
+      supported: true,
+      slots: [{ start: '10:00', end: '12:00', available: true }]
+    })
+    mockedSubmitAppointment.mockRejectedValue(new ApiError(409, '最多可同时预约 5 个房源'))
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    await wrapper.find('input[name="name"]').setValue('张三')
+    await wrapper.find('input[name="phone"]').setValue('13800138000')
+    await wrapper.find('input[name="code"]').setValue('123456')
+    await wrapper.find('.slot-chip').trigger('click')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(showToast).toHaveBeenCalledWith('最多可同时预约 5 个房源')
+  })
+
   it('does not send code for invalid phone', async () => {
     mockedGetProperty.mockResolvedValue(
       propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })

@@ -100,6 +100,13 @@ export interface ViewingRulesView {
   items: string[]
 }
 
+export interface PageResult<T> {
+  items: T[]
+  page: number
+  size: number
+  hasMore: boolean
+}
+
 export interface Appointment {
   id: number
   propertyId: number
