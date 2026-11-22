@@ -6,7 +6,7 @@ import type { ListInstance } from 'vant'
 import { getMyAppointments, getViewingRules, openDoor } from '../../api'
 import type { AppointmentStatus, MyAppointment } from '../../api/types'
 import { errorMessageOf } from '../../utils/error'
-import { formatDateTime } from '../../utils/format'
+import { formatDateTime, toLocalTime } from '../../utils/format'
 import { copyText } from '../../utils/clipboard'
 
 const router = useRouter()
@@ -90,13 +90,13 @@ async function loadRules() {
 }
 
 function isBeforeWindow(item: MyAppointment): boolean {
-  const start = new Date(item.slotStart).getTime()
-  return !Number.isNaN(start) && Date.now() < start
+  const start = toLocalTime(item.slotStart)
+  return start !== null && Date.now() < start
 }
 
 function isAfterWindow(item: MyAppointment): boolean {
-  const end = new Date(item.slotEnd).getTime()
-  return !Number.isNaN(end) && Date.now() > end
+  const end = toLocalTime(item.slotEnd)
+  return end !== null && Date.now() > end
 }
 
 function inProgressOf(item: MyAppointment): boolean {
@@ -260,9 +260,9 @@ onMounted(loadRules)
                   复制
                 </van-button>
               </div>
-              <div v-if="!isAfterWindow(item)" class="card-actions">
+              <div class="card-actions">
                 <van-button
-                  v-if="item.canOpenDoor"
+                  v-if="item.canOpenDoor && !isAfterWindow(item)"
                   class="action-btn action-btn--primary"
                   :loading="openingId === item.id"
                   :disabled="openingId !== null"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDateTime, formatTime, toApiDateTime, toDateString } from '../format'
+import { formatDateTime, formatTime, toApiDateTime, toDateString, toLocalTime } from '../format'
 
 describe('formatDateTime', () => {
   it('formats ISO datetime to readable form', () => {
@@ -54,5 +54,39 @@ describe('toDateString', () => {
 
   it('pads month and day', () => {
     expect(toDateString(new Date(2026, 0, 5))).toBe('2026-01-05')
+  })
+})
+
+describe('toLocalTime', () => {
+  it('parses ISO datetime as local time regardless of engine', () => {
+    const time = toLocalTime('2026-11-22T13:00:00')
+    expect(time).not.toBeNull()
+    const date = new Date(time as number)
+    expect(date.getFullYear()).toBe(2026)
+    expect(date.getMonth()).toBe(10)
+    expect(date.getDate()).toBe(22)
+    expect(date.getHours()).toBe(13)
+    expect(date.getMinutes()).toBe(0)
+  })
+
+  it('parses space-separated datetime', () => {
+    const time = toLocalTime('2026-11-22 09:05:00')
+    expect(time).not.toBeNull()
+    const date = new Date(time as number)
+    expect(date.getHours()).toBe(9)
+    expect(date.getMinutes()).toBe(5)
+  })
+
+  it('parses Z-suffixed datetime as UTC regardless of engine', () => {
+    expect(toLocalTime('2026-11-22T13:00:30.123Z')).toBe(
+      Date.UTC(2026, 10, 22, 13, 0, 30)
+    )
+  })
+
+  it('returns null for missing or unparseable values', () => {
+    expect(toLocalTime(null)).toBeNull()
+    expect(toLocalTime(undefined)).toBeNull()
+    expect(toLocalTime('')).toBeNull()
+    expect(toLocalTime('tomorrow')).toBeNull()
   })
 })

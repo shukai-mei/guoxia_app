@@ -444,7 +444,7 @@ describe('MyAppointments', () => {
     expect(wrapper.find('.action-btn--pending').exists()).toBe(false)
   })
 
-  it('greys out ended records and hides all operations', async () => {
+  it('greys out ended records, hides door/passcode ops but keeps property detail link', async () => {
     mockedList.mockResolvedValue(
       pageResult(
         [
@@ -464,9 +464,24 @@ describe('MyAppointments', () => {
     }
     expect(wrapper.findAll('.ended-tag').length).toBe(3)
     expect(wrapper.text()).toContain('已过期')
-    expect(wrapper.find('.card-actions').exists()).toBe(false)
+    const actions = wrapper.findAll('.card-actions')
+    expect(actions.length).toBe(3)
+    for (const action of actions) {
+      expect(action.text()).toContain('房源详情')
+      expect(action.text()).not.toContain('门禁开门')
+    }
     expect(wrapper.find('.passcode-row').exists()).toBe(false)
     expect(wrapper.find('.passcode-pending').exists()).toBe(false)
+  })
+
+  it('property detail button on ended record still navigates', async () => {
+    mockedList.mockResolvedValue(pageResult([endedAppointment('CONFIRMED')], false))
+    const { wrapper, router } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    await wrapper.find('.action-btn--plain').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('tenant-property-detail')
+    expect(router.currentRoute.value.params.id).toBe(String(endedAppointment('CONFIRMED').propertyId))
   })
 
   it('does not grey out upcoming or in-window records', async () => {
