@@ -13,6 +13,7 @@ export function makeRouter() {
       { path: '/properties/:id', name: 'tenant-property-detail', component: Dummy },
       { path: '/booking-success/:appointmentId', name: 'tenant-booking-success', component: Dummy },
       { path: '/my-appointments', name: 'tenant-my-appointments', component: Dummy },
+      { path: '/agreement/:type', name: 'tenant-agreement', component: Dummy },
       { path: '/admin/properties/new', name: 'admin-property-new', component: Dummy },
       { path: '/admin/properties/:id/edit', name: 'admin-property-edit', component: Dummy },
       { path: '/admin/buildings/new', name: 'admin-building-new', component: Dummy },

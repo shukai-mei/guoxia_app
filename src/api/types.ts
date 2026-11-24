@@ -1,6 +1,7 @@
 export type MediaType = 'SURROUNDING' | 'VIDEO'
 export type PropertyStatus = 'AVAILABLE' | 'OFF_SHELF'
-export type AppointmentStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED'
+export type RentStatus = 'PENDING_RENT' | 'RENTED'
+export type AppointmentStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED'
 export type ConfirmChannel = 'MANUAL' | 'AUTO'
 export type SmsStatus = 'SENT' | 'FAILED'
 
@@ -42,6 +43,7 @@ export interface Property {
   building: BuildingInfo | null
   ttlockLockId?: string | null
   status: PropertyStatus
+  rentStatus: RentStatus
   media: MediaItem[]
 }
 
@@ -121,6 +123,9 @@ export interface Appointment {
   passwordSet: boolean
   status: AppointmentStatus
   rejectReason: string | null
+  cancelReason: string | null
+  cancelSmsStatus: SmsStatus | null
+  cancelSmsSentAt: string | null
   createdAt: string
 }
 
@@ -134,6 +139,9 @@ export interface MyAppointment {
   slotEnd: string
   status: AppointmentStatus
   rejectReason: string | null
+  cancelReason: string | null
+  cancelSmsStatus: SmsStatus | null
+  cancelSmsSentAt: string | null
   passcode?: string | null
   canOpenDoor: boolean
   doorSupported: boolean
@@ -212,4 +220,11 @@ export interface PropertyQuery {
   keyword?: string
   rentMin?: number
   rentMax?: number
+  rentStatus?: RentStatus
+}
+
+export interface AdminPropertyQuery {
+  keyword?: string
+  status?: PropertyStatus
+  rentStatus?: RentStatus
 }

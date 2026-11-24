@@ -21,7 +21,11 @@ import { listProperties } from '../../api'
 
 const mockedList = vi.mocked(listProperties)
 
-function propertyOf(id: number, title: string): Property {
+function propertyOf(
+  id: number,
+  title: string,
+  rentStatus: Property['rentStatus'] = 'PENDING_RENT'
+): Property {
   return {
     id,
     title,
@@ -35,6 +39,7 @@ function propertyOf(id: number, title: string): Property {
     building: null,
     ttlockLockId: null,
     status: 'AVAILABLE',
+    rentStatus,
     media: []
   }
 }
@@ -96,5 +101,50 @@ describe('PropertyList', () => {
     await (wrapper.vm as unknown as { onRefresh: () => Promise<void> }).onRefresh()
     await flushPromises()
     expect(wrapper.text()).toContain('网络异常，请稍后重试')
+  })
+
+  it('shows rent status tags and dims rented cards', async () => {
+    mockedList.mockResolvedValue([
+      propertyOf(1, '阳光公寓', 'PENDING_RENT'),
+      propertyOf(2, '幸福里', 'RENTED')
+    ])
+    const { wrapper } = await mountAt(PropertyList, '/')
+    await flushPromises()
+    const cards = wrapper.findAll('.property-card')
+    expect(cards.length).toBe(2)
+    expect(cards[0].find('.status-tag--rent').exists()).toBe(true)
+    expect(cards[0].find('.status-tag--rent').text()).toBe('待租')
+    expect(cards[0].classes()).not.toContain('property-card-rented')
+    expect(cards[1].find('.status-tag--rented').exists()).toBe(true)
+    expect(cards[1].find('.status-tag--rented').text()).toBe('已租出')
+    expect(cards[1].classes()).toContain('property-card-rented')
+  })
+
+  it('rent status chip reloads with rentStatus param', async () => {
+    mockedList.mockResolvedValue([propertyOf(1, '阳光公寓')])
+    const { wrapper } = await mountAt(PropertyList, '/')
+    await flushPromises()
+    expect(mockedList).toHaveBeenCalledTimes(1)
+    expect(mockedList).toHaveBeenCalledWith({})
+
+    const rentedChip = wrapper.findAll('.chip').find((c) => c.text() === '已租出')
+    await rentedChip!.trigger('click')
+    await flushPromises()
+    expect(mockedList).toHaveBeenCalledWith({ rentStatus: 'RENTED' })
+  })
+
+  it('switching back to 全部 chip resets rent status and reloads', async () => {
+    mockedList.mockResolvedValue([propertyOf(1, '阳光公寓')])
+    const { wrapper } = await mountAt(PropertyList, '/')
+    await flushPromises()
+
+    let chips = wrapper.findAll('.chip')
+    await chips.find((c) => c.text() === '已租出')!.trigger('click')
+    await flushPromises()
+
+    chips = wrapper.findAll('.chip')
+    await chips.find((c) => c.text() === '全部')!.trigger('click')
+    await flushPromises()
+    expect(mockedList).toHaveBeenLastCalledWith({})
   })
 })

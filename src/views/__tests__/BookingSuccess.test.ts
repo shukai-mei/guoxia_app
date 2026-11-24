@@ -43,6 +43,7 @@ const PROPERTY: Property = {
     media: [{ key: '2026/map.jpg', url: 'https://signed/map.jpg', sortOrder: 0 }]
   },
   status: 'AVAILABLE',
+  rentStatus: 'PENDING_RENT',
   media: []
 }
 

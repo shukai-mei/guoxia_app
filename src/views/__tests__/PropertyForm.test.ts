@@ -95,6 +95,7 @@ describe('PropertyForm', () => {
       buildingId: 4,
       building: null,
       status: 'AVAILABLE',
+      rentStatus: 'PENDING_RENT',
       ttlockLockId: 'TTLOCK-001',
       media: [
         { type: 'SURROUNDING', key: 's.jpg', url: 'https://signed/s.jpg', sortOrder: 0 },
@@ -126,6 +127,7 @@ describe('PropertyForm', () => {
       buildingId: 4,
       building: null,
       status: 'AVAILABLE',
+      rentStatus: 'PENDING_RENT',
       media: []
     })
     mockedUpdate.mockResolvedValue({ id: 5 } as never)

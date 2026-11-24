@@ -55,6 +55,9 @@ function appointment(overrides: Partial<Appointment> = {}): Appointment {
     passwordSet: false,
     status: 'PENDING',
     rejectReason: null,
+    cancelReason: null,
+    cancelSmsStatus: null,
+    cancelSmsSentAt: null,
     createdAt: '2026-11-11T10:00:00',
     ...overrides
   }
@@ -172,5 +175,54 @@ describe('AdminAppointmentList', () => {
     expect(mockedList).toHaveBeenCalledTimes(3)
     expect(mockedList).toHaveBeenLastCalledWith(1)
     expect(wrapper.findAll('.appointment-card')).toHaveLength(1)
+  })
+
+  it('shows invalidated tag and reason without confirm or reject actions', async () => {
+    mockedList.mockResolvedValue(
+      pageResult(
+        [
+          appointment({
+            id: 11,
+            status: 'CANCELLED',
+            cancelReason: '房源已租出',
+            cancelSmsStatus: 'SENT',
+            cancelSmsSentAt: '2026-11-23T10:00:00'
+          })
+        ],
+        false
+      )
+    )
+    const { wrapper } = await mountAt(AdminAppointmentList, '/admin/appointments')
+    await flushPromises()
+    expect(wrapper.text()).toContain('已失效')
+    expect(wrapper.text()).toContain('失效原因：房源已租出')
+    expect(wrapper.find('.appointment-actions').exists()).toBe(false)
+    expect(wrapper.text()).toContain('失效短信')
+    expect(wrapper.find('.appointment-sms button').exists()).toBe(false)
+  })
+
+  it('resends cancel sms when invalidated record cancel sms failed', async () => {
+    mockedList.mockResolvedValueOnce(
+      pageResult(
+        [
+          appointment({
+            id: 12,
+            status: 'CANCELLED',
+            cancelReason: '房源已下架',
+            cancelSmsStatus: 'FAILED',
+            cancelSmsSentAt: '2026-11-23T10:00:00'
+          })
+        ],
+        false
+      )
+    )
+    mockedResend.mockResolvedValue(appointment({ status: 'CANCELLED', cancelSmsStatus: 'SENT' }))
+    const { wrapper } = await mountAt(AdminAppointmentList, '/admin/appointments')
+    await flushPromises()
+    expect(wrapper.text()).toContain('发送失败')
+    await wrapper.find('.appointment-sms button').trigger('click')
+    await flushPromises()
+    expect(mockedResend).toHaveBeenCalledWith(12)
+    expect(mockedList).toHaveBeenCalledTimes(2)
   })
 })

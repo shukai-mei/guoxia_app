@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { showImagePreview, showSuccessToast, showToast } from 'vant'
+import { showDialog, showImagePreview, showSuccessToast, showToast } from 'vant'
 import { getProperty, getSlots, sendVerificationCode, submitAppointment } from '../../api'
 import { ApiError } from '../../api/http'
 import type { MediaItem, Property, Slot } from '../../api/types'
-import { errorMessageOf } from '../../utils/error'
+import { errorMessageOf, isPropertyUnavailableError } from '../../utils/error'
 import { toDateString } from '../../utils/format'
 import { isValidPhone } from '../../utils/validate'
 
@@ -32,6 +32,17 @@ const slotSupported = ref(true)
 const slots = ref<Slot[]>([])
 const selectedSlot = ref<Slot | null>(null)
 const submitting = ref(false)
+
+const AGREEMENT_STORAGE_KEY = 'booking-agreement-agreed'
+const agreed = ref(localStorage.getItem(AGREEMENT_STORAGE_KEY) === '1')
+
+watch(agreed, (value) => {
+  if (value) {
+    localStorage.setItem(AGREEMENT_STORAGE_KEY, '1')
+  } else {
+    localStorage.removeItem(AGREEMENT_STORAGE_KEY)
+  }
+})
 
 const minDate = new Date()
 minDate.setHours(0, 0, 0, 0)
@@ -79,6 +90,7 @@ const addressMedia = computed(() =>
 )
 
 const supportsAppointment = computed(() => building.value !== null)
+const rented = computed(() => property.value?.rentStatus === 'RENTED')
 
 const fromAppointment = computed(() => route.query.from === 'appointment')
 
@@ -155,7 +167,22 @@ function selectSlot(slot: Slot) {
   selectedSlot.value = slot
 }
 
+function openAgreement(type: 'service' | 'privacy') {
+  router.push(`/agreement/${type}`)
+}
+
+function requireAgreement(): boolean {
+  if (agreed.value) {
+    return true
+  }
+  showToast('请先阅读并同意《用户服务协议》和《隐私政策》')
+  return false
+}
+
 async function onSendCode() {
+  if (!requireAgreement()) {
+    return
+  }
   if (!isValidPhone(appointment.value.phone)) {
     showToast('请输入有效的手机号')
     return
@@ -193,6 +220,9 @@ onUnmounted(() => {
 })
 
 async function onSubmit() {
+  if (!requireAgreement()) {
+    return
+  }
   if (!appointment.value.name.trim()) {
     showToast('请填写姓名')
     return
@@ -234,7 +264,11 @@ async function onSubmit() {
       }
     })
   } catch (error) {
-    showToast(errorMessageOf(error))
+    if (error instanceof ApiError && isPropertyUnavailableError(error.code)) {
+      showDialog({ message: errorMessageOf(error) })
+    } else {
+      showToast(errorMessageOf(error))
+    }
     if (error instanceof ApiError && error.code === 404) {
       load()
       return
@@ -250,7 +284,7 @@ async function onSubmit() {
 onMounted(async () => {
   selectedDate.value = toDateString(new Date())
   await load()
-  if (!offShelf.value && building.value && !fromAppointment.value) {
+  if (!offShelf.value && !rented.value && building.value && !fromAppointment.value) {
     loadSlots()
   }
 })
@@ -272,7 +306,15 @@ onMounted(async () => {
 
         <template v-else-if="property">
           <div class="detail-card">
-            <div class="detail-title">{{ property.title }}</div>
+            <div class="detail-title-row">
+              <div class="detail-title">{{ property.title }}</div>
+              <span
+                class="status-tag"
+                :class="rented ? 'status-tag--rented' : 'status-tag--rent'"
+              >
+                {{ rented ? '已租出' : '待租' }}
+              </span>
+            </div>
             <div class="detail-location">{{ property.location }}</div>
             <div class="detail-tags">
               <span class="spec-tag">{{ property.layout }}</span>
@@ -354,10 +396,21 @@ onMounted(async () => {
             ></video>
           </template>
 
-          <div v-if="!fromAppointment" class="appointment-card">
-            <div class="section-title">预约看房</div>
-            <template v-if="supportsAppointment">
-              <van-form @submit="onSubmit">
+          <div v-if="!fromAppointment">
+            <template v-if="rented">
+              <div class="rented-notice">
+                <span class="rented-notice-icon">🏠</span>
+                <div class="rented-notice-body">
+                  <div class="rented-notice-title">该房源已租出</div>
+                  <div class="rented-notice-sub">暂不支持预约，可查看其他待租房源</div>
+                </div>
+              </div>
+              <div class="disabled-submit">提交预约（已禁用）</div>
+            </template>
+            <div v-else class="appointment-card">
+              <template v-if="supportsAppointment">
+                <div class="section-title">预约看房</div>
+                <van-form @submit="onSubmit">
                 <van-cell-group inset>
                   <van-field
                     v-model="appointment.name"
@@ -442,6 +495,22 @@ onMounted(async () => {
                   </div>
                 </div>
 
+                <div class="agreement-row">
+                  <van-checkbox v-model="agreed" icon-size="15px">
+                    <span class="agreement-text">
+                      我已阅读并同意<a
+                        class="agreement-link"
+                        @click.stop.prevent="openAgreement('service')"
+                        >《用户服务协议》</a
+                      >和<a
+                        class="agreement-link"
+                        @click.stop.prevent="openAgreement('privacy')"
+                        >《隐私政策》</a
+                      >
+                    </span>
+                  </van-checkbox>
+                </div>
+
                 <div class="submit-wrap">
                   <van-button
                     round
@@ -454,8 +523,9 @@ onMounted(async () => {
                   </van-button>
                 </div>
               </van-form>
-            </template>
-            <div v-else class="unsupported-tip">该房源暂不支持预约看房</div>
+              </template>
+              <div v-else class="unsupported-tip">该房源暂不支持预约看房</div>
+            </div>
           </div>
         </template>
       </div>
@@ -487,6 +557,12 @@ onMounted(async () => {
   border: 0.5px solid var(--line);
   border-radius: 14px;
   padding: 14px;
+}
+
+.detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .detail-title {
@@ -595,6 +671,45 @@ onMounted(async () => {
   padding: 12px 0 16px;
 }
 
+.rented-notice {
+  margin-top: 14px;
+  background: #f5f6f7;
+  border: 0.5px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rented-notice-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.rented-notice-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sub);
+}
+
+.rented-notice-sub {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.disabled-submit {
+  margin-top: 12px;
+  background: #fff;
+  color: var(--hint);
+  border: 0.5px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 14px;
+  text-align: center;
+}
+
 .send-code-btn {
   background: var(--brand-light);
   border-color: transparent;
@@ -686,6 +801,21 @@ onMounted(async () => {
   text-align: center;
   font-size: 14px;
   color: var(--muted);
+}
+
+.agreement-row {
+  padding: 14px 16px 0;
+}
+
+.agreement-row :deep(.van-checkbox__label) {
+  margin-left: 8px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--muted);
+}
+
+.agreement-link {
+  color: var(--brand);
 }
 
 .submit-wrap {

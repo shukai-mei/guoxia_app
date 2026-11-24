@@ -9,3 +9,7 @@ export function errorMessageOf(error: unknown): string {
   }
   return '操作失败，请稍后重试'
 }
+
+export function isPropertyUnavailableError(code: number | null | undefined): boolean {
+  return code === 40901 || code === 40902
+}

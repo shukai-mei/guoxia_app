@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { showSuccessToast, showToast } from 'vant'
+import { showDialog, showSuccessToast, showToast } from 'vant'
 import type { ListInstance } from 'vant'
 import { getMyAppointments, getViewingRules, openDoor } from '../../api'
+import { ApiError } from '../../api/http'
 import type { AppointmentStatus, MyAppointment } from '../../api/types'
-import { errorMessageOf } from '../../utils/error'
+import { errorMessageOf, isPropertyUnavailableError } from '../../utils/error'
 import { formatDateTime, toLocalTime } from '../../utils/format'
 import { copyText } from '../../utils/clipboard'
 
@@ -27,7 +28,8 @@ let pendingLoad: Promise<void> | null = null
 const STATUS_TEXT: Record<AppointmentStatus, string> = {
   PENDING: '待处理',
   CONFIRMED: '已确认',
-  REJECTED: '已拒绝'
+  REJECTED: '已拒绝',
+  CANCELLED: '已失效'
 }
 
 function tagTextOf(status: AppointmentStatus): string {
@@ -128,7 +130,11 @@ async function onOpenDoor(item: MyAppointment) {
     await openDoor(item.id)
     showSuccessToast('门禁已开启')
   } catch (error) {
-    showToast(errorMessageOf(error))
+    if (error instanceof ApiError && isPropertyUnavailableError(error.code)) {
+      showDialog({ message: errorMessageOf(error) })
+    } else {
+      showToast(errorMessageOf(error))
+    }
   } finally {
     openingId.value = null
   }
@@ -228,7 +234,8 @@ onMounted(loadRules)
               <div class="card-head">
                 <div class="card-title">
                   {{ item.propertyTitle }}
-                  <span v-if="isAfterWindow(item)" class="spec-tag status-tag ended-tag">已过期</span>
+                  <span v-if="item.status === 'CANCELLED'" class="spec-tag status-tag">已失效</span>
+                  <span v-else-if="isAfterWindow(item)" class="spec-tag status-tag ended-tag">已过期</span>
                   <span v-else-if="inProgressOf(item)" class="spec-tag spec-tag--hl">进行中</span>
                   <span v-else-if="item.status !== 'CONFIRMED'" class="spec-tag status-tag">
                     {{ tagTextOf(item.status) }}
@@ -245,6 +252,9 @@ onMounted(loadRules)
               <div v-if="item.status === 'REJECTED' && item.rejectReason" class="card-reject">
                 拒绝原因：{{ item.rejectReason }}
               </div>
+              <div v-if="item.status === 'CANCELLED' && item.cancelReason" class="card-reject">
+                失效原因：{{ item.cancelReason }}
+              </div>
               <div v-if="passcodePendingOf(item)" class="passcode-pending">
                 <div class="passcode-pending-title">房门密码：暂未下发</div>
                 <div class="passcode-pending-sub">密码将在预约时间段前5分钟下发</div>
@@ -253,7 +263,10 @@ onMounted(loadRules)
                 <div class="passcode-pending-title">房门密码：暂未下发</div>
                 <div class="passcode-pending-sub">预约确认后，密码将在预约时间段前5分钟下发</div>
               </div>
-              <div v-if="item.passcode && !isAfterWindow(item)" class="passcode-row">
+              <div
+                v-if="item.passcode && item.status !== 'CANCELLED' && !isAfterWindow(item)"
+                class="passcode-row"
+              >
                 <span class="passcode-label">房门密码</span>
                 <span class="passcode-value">{{ item.passcode }}</span>
                 <van-button size="mini" plain type="primary" @click.stop="onCopyPasscode(item)">

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { listProperties } from '../../api'
-import type { Property } from '../../api/types'
+import type { Property, RentStatus } from '../../api/types'
 import { errorMessageOf } from '../../utils/error'
 import { isPositiveNumber } from '../../utils/validate'
 
@@ -12,6 +12,13 @@ const router = useRouter()
 const keyword = ref('')
 const rentMin = ref('')
 const rentMax = ref('')
+const rentStatus = ref('')
+
+const RENT_STATUS_OPTIONS = [
+  { text: '全部', value: '' },
+  { text: '待租', value: 'PENDING_RENT' },
+  { text: '已租出', value: 'RENTED' }
+]
 
 const loading = ref(false)
 const loaded = ref(false)
@@ -19,8 +26,18 @@ const refreshing = ref(false)
 const errorText = ref('')
 const properties = ref<Property[]>([])
 
-function buildParams(): { keyword?: string; rentMin?: number; rentMax?: number } {
-  const params: { keyword?: string; rentMin?: number; rentMax?: number } = {}
+function buildParams(): {
+  keyword?: string
+  rentMin?: number
+  rentMax?: number
+  rentStatus?: RentStatus
+} {
+  const params: {
+    keyword?: string
+    rentMin?: number
+    rentMax?: number
+    rentStatus?: RentStatus
+  } = {}
   if (keyword.value.trim()) {
     params.keyword = keyword.value.trim()
   }
@@ -29,6 +46,9 @@ function buildParams(): { keyword?: string; rentMin?: number; rentMax?: number }
   }
   if (isPositiveNumber(rentMax.value)) {
     params.rentMax = Number(rentMax.value)
+  }
+  if (rentStatus.value) {
+    params.rentStatus = rentStatus.value as RentStatus
   }
   return params
 }
@@ -62,12 +82,9 @@ async function onRefresh() {
   }
 }
 
-function clearFilter() {
-  keyword.value = ''
-  rentMin.value = ''
-  rentMax.value = ''
+watch(rentStatus, () => {
   load()
-}
+})
 
 function coverOf(property: Property): string | undefined {
   return property.media
@@ -93,11 +110,21 @@ onMounted(load)
         @search="load"
         @clear="load"
       />
+      <div class="filter-chips">
+        <div
+          v-for="option in RENT_STATUS_OPTIONS"
+          :key="option.value"
+          class="chip"
+          :class="{ on: rentStatus === option.value }"
+          @click="rentStatus = option.value"
+        >
+          {{ option.text }}
+        </div>
+      </div>
       <div class="rent-filter">
         <van-field v-model="rentMin" type="digit" placeholder="¥ 最低" class="rent-field" />
         <van-field v-model="rentMax" type="digit" placeholder="¥ 最高" class="rent-field" />
         <van-button size="small" type="primary" class="filter-btn" @click="load">筛选</van-button>
-        <van-button size="small" plain class="filter-btn" @click="clearFilter">清除</van-button>
       </div>
     </div>
 
@@ -119,6 +146,7 @@ onMounted(load)
               v-for="property in properties"
               :key="property.id"
               class="property-card"
+              :class="{ 'property-card-rented': property.rentStatus === 'RENTED' }"
               @click="openDetail(property)"
             >
               <img
@@ -127,9 +155,22 @@ onMounted(load)
                 class="property-cover"
                 alt="房源图片"
               />
+              <div
+                v-else
+                class="property-cover"
+                :class="property.rentStatus === 'RENTED' ? 'cover-rented' : 'cover-rent'"
+              ></div>
               <div class="property-body">
                 <div>
-                  <div class="property-title">{{ property.title }}</div>
+                  <div class="property-title">
+                    {{ property.title }}
+                    <span
+                      class="status-tag"
+                      :class="property.rentStatus === 'RENTED' ? 'status-tag--rented' : 'status-tag--rent'"
+                    >
+                      {{ property.rentStatus === 'RENTED' ? '已租出' : '待租' }}
+                    </span>
+                  </div>
                   <div class="property-location">{{ property.location }}</div>
                   <div class="property-meta">{{ property.layout }} · {{ property.area }}㎡</div>
                 </div>
@@ -160,6 +201,31 @@ onMounted(load)
   background: #fff;
   border: 0.5px solid var(--line);
   border-radius: 14px;
+}
+
+.filter-chips {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.chip {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  color: var(--sub);
+  background: #fff;
+  border: 0.5px solid var(--line);
+  border-radius: 20px;
+  padding: 7px 0;
+  cursor: pointer;
+}
+
+.chip.on {
+  color: var(--brand);
+  background: var(--brand-light);
+  border-color: var(--brand);
+  font-weight: 500;
 }
 
 .rent-filter {
@@ -201,12 +267,24 @@ onMounted(load)
   border-radius: 14px;
 }
 
+.property-card-rented {
+  opacity: 0.7;
+}
+
 .property-cover {
   width: 72px;
   height: 72px;
   border-radius: 10px;
   object-fit: cover;
   flex-shrink: 0;
+}
+
+.cover-rent {
+  background: #fce8d6;
+}
+
+.cover-rented {
+  background: #ededeb;
 }
 
 .property-body {

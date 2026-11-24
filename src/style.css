@@ -59,3 +59,41 @@ body {
   font-weight: 500;
   color: var(--muted);
 }
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 1px 7px;
+  line-height: 1.5;
+}
+
+.status-tag::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.status-tag--rent {
+  color: #2d5f3f;
+  background: #eaf3ee;
+}
+
+.status-tag--rent::before {
+  background: #2d5f3f;
+}
+
+.status-tag--rented {
+  color: var(--muted);
+  background: #f0f1f2;
+}
+
+.status-tag--rented::before {
+  background: #b4b2a9;
+}

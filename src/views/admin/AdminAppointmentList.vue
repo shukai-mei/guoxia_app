@@ -16,13 +16,15 @@ import { formatDateTime, formatTime } from '../../utils/format'
 const STATUS_TEXT: Record<string, string> = {
   PENDING: '待处理',
   CONFIRMED: '已确认',
-  REJECTED: '已拒绝'
+  REJECTED: '已拒绝',
+  CANCELLED: '已失效'
 }
 
 const STATUS_TYPE: Record<string, 'warning' | 'success' | 'default'> = {
   PENDING: 'warning',
   CONFIRMED: 'success',
-  REJECTED: 'default'
+  REJECTED: 'default',
+  CANCELLED: 'default'
 }
 
 const CHANNEL_TEXT: Record<string, string> = {
@@ -211,8 +213,18 @@ async function onResend(item: Appointment) {
               <van-tag :type="smsType(item.passwordSmsStatus)" plain>
                 {{ smsText(item.passwordSmsStatus) }}
               </van-tag>
+              <template v-if="item.status === 'CANCELLED'">
+                失效短信：
+                <van-tag :type="smsType(item.cancelSmsStatus)" plain>
+                  {{ smsText(item.cancelSmsStatus) }}
+                </van-tag>
+              </template>
               <van-button
-                v-if="item.bookingSmsStatus === 'FAILED' || item.passwordSmsStatus === 'FAILED'"
+                v-if="
+                  item.status === 'CANCELLED'
+                    ? item.cancelSmsStatus === 'FAILED'
+                    : item.bookingSmsStatus === 'FAILED' || item.passwordSmsStatus === 'FAILED'
+                "
                 size="mini"
                 plain
                 type="primary"
@@ -230,6 +242,9 @@ async function onResend(item: Appointment) {
             </div>
             <div v-if="item.rejectReason" class="appointment-reject">
               拒绝原因：{{ item.rejectReason }}
+            </div>
+            <div v-if="item.cancelReason" class="appointment-reject">
+              失效原因：{{ item.cancelReason }}
             </div>
             <div v-if="item.status === 'PENDING'" class="appointment-actions">
               <van-button size="small" type="primary" @click="onConfirm(item)">确认</van-button>

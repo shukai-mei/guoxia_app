@@ -29,6 +29,11 @@ const router = createRouter({
       component: () => import('../views/tenant/Consultation.vue')
     },
     {
+      path: '/agreement/:type',
+      name: 'tenant-agreement',
+      component: () => import('../views/tenant/Agreement.vue')
+    },
+    {
       path: '/admin',
       name: 'admin-home',
       component: () => import('../views/admin/AdminHome.vue')

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
+import type { VueWrapper } from '@vue/test-utils'
 import { mountAt } from './helpers'
 import PropertyDetail from '../tenant/PropertyDetail.vue'
 
@@ -8,7 +9,8 @@ vi.mock('vant', async (importOriginal) => {
   return {
     ...actual,
     showToast: vi.fn(),
-    showSuccessToast: vi.fn()
+    showSuccessToast: vi.fn(),
+    showDialog: vi.fn()
   }
 })
 
@@ -19,17 +21,20 @@ vi.mock('../../api', () => ({
   sendVerificationCode: vi.fn()
 }))
 
-import { showSuccessToast, showToast } from 'vant'
+import { showDialog, showSuccessToast, showToast } from 'vant'
 import { getProperty, getSlots, sendVerificationCode, submitAppointment } from '../../api'
 import { ApiError } from '../../api/http'
-import type { BuildingInfo, Property } from '../../api/types'
+import type { BuildingInfo, Property, RentStatus } from '../../api/types'
 
 const mockedGetProperty = vi.mocked(getProperty)
 const mockedGetSlots = vi.mocked(getSlots)
 const mockedSubmitAppointment = vi.mocked(submitAppointment)
 const mockedSendVerificationCode = vi.mocked(sendVerificationCode)
 
-function propertyWithBuilding(building: BuildingInfo | null): Property {
+function propertyWithBuilding(
+  building: BuildingInfo | null,
+  rentStatus: RentStatus = 'PENDING_RENT'
+): Property {
   return {
     id: 5,
     title: '阳光公寓',
@@ -42,14 +47,20 @@ function propertyWithBuilding(building: BuildingInfo | null): Property {
     buildingId: 3,
     building,
     status: 'AVAILABLE',
+    rentStatus,
     media: []
   }
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
+  localStorage.clear()
   mockedGetSlots.mockResolvedValue({ propertyId: 5, buildingId: 3, buildingName: 'A栋', supported: true, slots: [] })
 })
+
+async function agreeToTerms(wrapper: VueWrapper) {
+  await wrapper.find('.agreement-row .van-checkbox').trigger('click')
+}
 
 describe('PropertyDetail', () => {
   it('renders building info and address reference images', async () => {
@@ -156,6 +167,9 @@ describe('PropertyDetail', () => {
       passwordSet: false,
       status: 'PENDING',
       rejectReason: null,
+      cancelReason: null,
+      cancelSmsStatus: null,
+      cancelSmsSentAt: null,
       createdAt: '2026-11-11T10:00:00'
     })
     const { wrapper, replaceSpy } = await mountAt(PropertyDetail, '/properties/5')
@@ -164,6 +178,7 @@ describe('PropertyDetail', () => {
     await wrapper.find('input[name="phone"]').setValue('13800138000')
     await wrapper.find('input[name="code"]').setValue('123456')
     await wrapper.find('.slot-chip').trigger('click')
+    await agreeToTerms(wrapper)
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     expect(mockedSubmitAppointment).toHaveBeenCalledWith('5', {
@@ -199,6 +214,7 @@ describe('PropertyDetail', () => {
     await wrapper.find('input[name="phone"]').setValue('13800138000')
     await wrapper.find('input[name="code"]').setValue('123456')
     await wrapper.find('.slot-chip').trigger('click')
+    await agreeToTerms(wrapper)
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     expect(showToast).toHaveBeenCalledWith('该时段已被预约')
@@ -223,6 +239,7 @@ describe('PropertyDetail', () => {
     await wrapper.find('input[name="phone"]').setValue('13800138000')
     await wrapper.find('input[name="code"]').setValue('123456')
     await wrapper.find('.slot-chip').trigger('click')
+    await agreeToTerms(wrapper)
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     expect(showToast).toHaveBeenCalledWith('该房源已有未结束的预约')
@@ -246,6 +263,7 @@ describe('PropertyDetail', () => {
     await wrapper.find('input[name="phone"]').setValue('13800138000')
     await wrapper.find('input[name="code"]').setValue('123456')
     await wrapper.find('.slot-chip').trigger('click')
+    await agreeToTerms(wrapper)
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     expect(showToast).toHaveBeenCalledWith('最多可同时预约 5 个房源')
@@ -258,6 +276,7 @@ describe('PropertyDetail', () => {
     const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
     await flushPromises()
     await wrapper.find('input[name="phone"]').setValue('123')
+    await agreeToTerms(wrapper)
     await wrapper.find('.send-code-btn').trigger('click')
     await flushPromises()
     expect(mockedSendVerificationCode).not.toHaveBeenCalled()
@@ -275,7 +294,8 @@ describe('PropertyDetail', () => {
       await flushPromises()
       await wrapper.find('input[name="phone"]').setValue('13800138000')
       await flushPromises()
-      await wrapper.find('.send-code-btn').trigger('click')
+      await agreeToTerms(wrapper)
+    await wrapper.find('.send-code-btn').trigger('click')
       await flushPromises()
       expect(mockedSendVerificationCode).toHaveBeenCalledWith('13800138000')
       expect(showToast).toHaveBeenCalledWith('验证码已发送')
@@ -301,6 +321,7 @@ describe('PropertyDetail', () => {
     await flushPromises()
     await wrapper.find('input[name="phone"]').setValue('13800138000')
     await flushPromises()
+    await agreeToTerms(wrapper)
     await wrapper.find('.send-code-btn').trigger('click')
     await flushPromises()
     expect(showToast).toHaveBeenCalledWith('短信发送失败，请稍后重试')
@@ -326,6 +347,7 @@ describe('PropertyDetail', () => {
     await wrapper.find('input[name="phone"]').setValue('13800138000')
     await wrapper.find('input[name="code"]').setValue('12345')
     await wrapper.find('.slot-chip').trigger('click')
+    await agreeToTerms(wrapper)
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     expect(showToast).toHaveBeenCalledWith('请输入 6 位验证码')
@@ -351,6 +373,7 @@ describe('PropertyDetail', () => {
     await wrapper.find('input[name="phone"]').setValue('13800138000')
     await wrapper.find('input[name="code"]').setValue('654321')
     await wrapper.find('.slot-chip').trigger('click')
+    await agreeToTerms(wrapper)
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     expect(showToast).toHaveBeenCalledWith('验证码错误或已过期')
@@ -370,5 +393,142 @@ describe('PropertyDetail', () => {
     expect((wrapper.find('input[name="code"]').element as HTMLInputElement).value).toBe('123456')
     await wrapper.find('input[name="phone"]').setValue('13800138001')
     expect((wrapper.find('input[name="code"]').element as HTMLInputElement).value).toBe('')
+  })
+
+  it('blocks sending code until agreement is checked', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    await wrapper.find('input[name="phone"]').setValue('13800138000')
+    await wrapper.find('.send-code-btn').trigger('click')
+    await flushPromises()
+    expect(mockedSendVerificationCode).not.toHaveBeenCalled()
+    expect(showToast).toHaveBeenCalledWith('请先阅读并同意《用户服务协议》和《隐私政策》')
+  })
+
+  it('blocks submit until agreement is checked', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    mockedGetSlots.mockResolvedValue({
+      propertyId: 5,
+      buildingId: 3,
+      buildingName: 'A栋',
+      supported: true,
+      slots: [{ start: '10:00', end: '12:00', available: true }]
+    })
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    await wrapper.find('input[name="name"]').setValue('张三')
+    await wrapper.find('input[name="phone"]').setValue('13800138000')
+    await wrapper.find('input[name="code"]').setValue('123456')
+    await wrapper.find('.slot-chip').trigger('click')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(mockedSubmitAppointment).not.toHaveBeenCalled()
+    expect(showToast).toHaveBeenCalledWith('请先阅读并同意《用户服务协议》和《隐私政策》')
+  })
+
+  it('opens agreement pages from the checkbox links', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    const { wrapper, router } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    const pushSpy = vi.spyOn(router, 'push')
+    const links = wrapper.findAll('.agreement-link')
+    await links[0].trigger('click')
+    await links[1].trigger('click')
+    expect(pushSpy).toHaveBeenCalledWith('/agreement/service')
+    expect(pushSpy).toHaveBeenCalledWith('/agreement/privacy')
+    expect(wrapper.find('.agreement-row .van-checkbox__icon').classes()).not.toContain(
+      'van-checkbox__icon--checked'
+    )
+  })
+
+  it('remembers agreement consent on later visits', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    const first = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    await agreeToTerms(first.wrapper)
+    first.wrapper.unmount()
+    const second = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    expect(second.wrapper.find('.agreement-row .van-checkbox__icon').classes()).toContain(
+      'van-checkbox__icon--checked'
+    )
+  })
+
+  it('shows rented notice, hides booking form and skips slot loading', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding(
+        { id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] },
+        'RENTED'
+      )
+    )
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    expect(wrapper.find('.status-tag--rented').text()).toBe('已租出')
+    expect(wrapper.text()).toContain('该房源已租出')
+    expect(wrapper.text()).toContain('暂不支持预约，可查看其他待租房源')
+    expect(wrapper.text()).toContain('提交预约（已禁用）')
+    expect(wrapper.text()).not.toContain('预约看房')
+    expect(wrapper.find('form').exists()).toBe(false)
+    expect(wrapper.text()).toContain('A栋')
+    expect(mockedGetSlots).not.toHaveBeenCalled()
+  })
+
+  it('shows dialog when submit rejected because property rented', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    mockedGetSlots.mockResolvedValue({
+      propertyId: 5,
+      buildingId: 3,
+      buildingName: 'A栋',
+      supported: true,
+      slots: [{ start: '10:00', end: '12:00', available: true }]
+    })
+    mockedSubmitAppointment.mockRejectedValue(new ApiError(40901, '房源已租出，暂不支持预约看房'))
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    await wrapper.find('input[name="name"]').setValue('张三')
+    await wrapper.find('input[name="phone"]').setValue('13800138000')
+    await wrapper.find('input[name="code"]').setValue('123456')
+    await wrapper.find('.slot-chip').trigger('click')
+    await agreeToTerms(wrapper)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(showDialog).toHaveBeenCalledWith({ message: '房源已租出，暂不支持预约看房' })
+    expect(showToast).not.toHaveBeenCalled()
+  })
+
+  it('shows dialog when submit rejected because property off shelf', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    mockedGetSlots.mockResolvedValue({
+      propertyId: 5,
+      buildingId: 3,
+      buildingName: 'A栋',
+      supported: true,
+      slots: [{ start: '10:00', end: '12:00', available: true }]
+    })
+    mockedSubmitAppointment.mockRejectedValue(new ApiError(40902, '房源已下架，无法预约看房'))
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    await wrapper.find('input[name="name"]').setValue('张三')
+    await wrapper.find('input[name="phone"]').setValue('13800138000')
+    await wrapper.find('input[name="code"]').setValue('123456')
+    await wrapper.find('.slot-chip').trigger('click')
+    await agreeToTerms(wrapper)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(showDialog).toHaveBeenCalledWith({ message: '房源已下架，无法预约看房' })
+    expect(showToast).not.toHaveBeenCalled()
   })
 })

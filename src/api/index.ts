@@ -1,5 +1,6 @@
 import { http } from './http'
 import type {
+  AdminPropertyQuery,
   Appointment,
   AppointmentInput,
   Building,
@@ -13,6 +14,7 @@ import type {
   PropertyInput,
   PropertyQuery,
   PropertyStatus,
+  RentStatus,
   SlotList,
   UploadResult,
   ViewingRulesView,
@@ -71,8 +73,8 @@ export function openDoor(id: number | string): Promise<void> {
   return http.post(`/api/me/appointments/${id}/open-door`).then(() => undefined)
 }
 
-export function adminListProperties(): Promise<Property[]> {
-  return http.get('/admin/api/properties').then((r) => r.data as Property[])
+export function adminListProperties(params: AdminPropertyQuery = {}): Promise<Property[]> {
+  return http.get('/admin/api/properties', { params }).then((r) => r.data as Property[])
 }
 
 export function createProperty(input: PropertyInput): Promise<Property> {
@@ -85,6 +87,14 @@ export function updateProperty(id: number | string, input: PropertyInput): Promi
 
 export function updatePropertyStatus(id: number | string, status: PropertyStatus): Promise<void> {
   return http.put(`/admin/api/properties/${id}/status`, { status }).then(() => undefined)
+}
+
+export function batchUpdatePropertyStatus(ids: number[], status: PropertyStatus): Promise<void> {
+  return http.post('/admin/api/properties/batch-status', { ids, status }).then(() => undefined)
+}
+
+export function updatePropertyRentStatus(id: number | string, rentStatus: RentStatus): Promise<void> {
+  return http.put(`/admin/api/properties/${id}/rent-status`, { rentStatus }).then(() => undefined)
 }
 
 export function getDailyPassword(propertyId: number | string, date: string): Promise<DailyPassword> {

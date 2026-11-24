@@ -10,6 +10,7 @@ import {
   adminListProperties,
   adminUpdateBuilding,
   adminUpdateWechatConfig,
+  batchUpdatePropertyStatus,
   confirmAppointment,
   createProperty,
   exchangeWechatSession,
@@ -25,6 +26,7 @@ import {
   sendVerificationCode,
   submitAppointment,
   updateProperty,
+  updatePropertyRentStatus,
   updatePropertyStatus,
   uploadFile,
   upsertDailyPassword
@@ -45,6 +47,15 @@ describe('tenant api', () => {
     mock.onGet('/api/properties', { params: { keyword: '两室', rentMin: 1000, rentMax: 3000 } }).reply(...ok([]))
     await listProperties({ keyword: '两室', rentMin: 1000, rentMax: 3000 })
     expect(mock.history.get.some((r) => r.url === '/api/properties')).toBe(true)
+  })
+
+  it('listProperties GET /api/properties with rentStatus param', async () => {
+    mock.onGet('/api/properties', { params: { rentStatus: 'RENTED' } }).reply(...ok([]))
+    await listProperties({ rentStatus: 'RENTED' })
+    const request = mock.history.get.find(
+      (r) => r.url === '/api/properties' && r.params && r.params.rentStatus === 'RENTED'
+    )
+    expect(request).toBeDefined()
   })
 
   it('listProperties defaults to no params', async () => {
@@ -198,6 +209,19 @@ describe('admin property api', () => {
     expect(mock.history.get.some((r) => r.url === '/admin/api/properties')).toBe(true)
   })
 
+  it('adminListProperties GET /admin/api/properties with filter params', async () => {
+    mock
+      .onGet('/admin/api/properties', {
+        params: { keyword: '阳光', status: 'OFF_SHELF', rentStatus: 'PENDING_RENT' }
+      })
+      .reply(...ok([]))
+    await adminListProperties({ keyword: '阳光', status: 'OFF_SHELF', rentStatus: 'PENDING_RENT' })
+    const request = mock.history.get.find(
+      (r) => r.url === '/admin/api/properties' && r.params && r.params.keyword === '阳光'
+    )
+    expect(request).toBeDefined()
+  })
+
   it('createProperty POST /admin/api/properties with buildingId and media inputs', async () => {
     mock.onPost('/admin/api/properties').reply(...ok({ id: 1 }))
     await createProperty({
@@ -244,6 +268,20 @@ describe('admin property api', () => {
     await updatePropertyStatus(5, 'OFF_SHELF')
     const request = mock.history.put.find((r) => r.url === '/admin/api/properties/5/status')
     expect(JSON.parse(request!.data)).toEqual({ status: 'OFF_SHELF' })
+  })
+
+  it('batchUpdatePropertyStatus POST /admin/api/properties/batch-status', async () => {
+    mock.onPost('/admin/api/properties/batch-status').reply(...ok(null))
+    await batchUpdatePropertyStatus([1, 2, 3], 'AVAILABLE')
+    const request = mock.history.post.find((r) => r.url === '/admin/api/properties/batch-status')
+    expect(JSON.parse(request!.data)).toEqual({ ids: [1, 2, 3], status: 'AVAILABLE' })
+  })
+
+  it('updatePropertyRentStatus PUT /admin/api/properties/{id}/rent-status', async () => {
+    mock.onPut('/admin/api/properties/5/rent-status').reply(...ok(null))
+    await updatePropertyRentStatus(5, 'RENTED')
+    const request = mock.history.put.find((r) => r.url === '/admin/api/properties/5/rent-status')
+    expect(JSON.parse(request!.data)).toEqual({ rentStatus: 'RENTED' })
   })
 
   it('getDailyPassword GET /admin/api/properties/{id}/daily-passwords with date', async () => {

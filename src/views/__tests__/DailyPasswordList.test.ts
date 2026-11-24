@@ -39,6 +39,7 @@ const PROPERTIES: Property[] = [
     buildingId: 3,
     building: null,
     status: 'AVAILABLE',
+    rentStatus: 'PENDING_RENT',
     media: []
   }
 ]

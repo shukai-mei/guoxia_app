@@ -9,7 +9,8 @@ vi.mock('vant', async (importOriginal) => {
   return {
     ...actual,
     showToast: vi.fn(),
-    showSuccessToast: vi.fn()
+    showSuccessToast: vi.fn(),
+    showDialog: vi.fn()
   }
 })
 
@@ -19,8 +20,9 @@ vi.mock('../../api', () => ({
   openDoor: vi.fn()
 }))
 
-import { showSuccessToast, showToast } from 'vant'
+import { showDialog, showSuccessToast, showToast } from 'vant'
 import { getMyAppointments, getViewingRules, openDoor } from '../../api'
+import { ApiError } from '../../api/http'
 import { formatDateTime } from '../../utils/format'
 
 const mockedList = vi.mocked(getMyAppointments)
@@ -45,6 +47,9 @@ const CONFIRMED: MyAppointment = {
   slotEnd: '2026-11-15T12:00:00',
   status: 'CONFIRMED',
   rejectReason: null,
+  cancelReason: null,
+  cancelSmsStatus: null,
+  cancelSmsSentAt: null,
   passcode: '5678',
   canOpenDoor: true,
   doorSupported: false,
@@ -66,6 +71,9 @@ const PENDING: MyAppointment = {
   slotEnd: new Date(Date.now() + 2 * 86400000 + 7200000).toISOString(),
   status: 'PENDING',
   rejectReason: null,
+  cancelReason: null,
+  cancelSmsStatus: null,
+  cancelSmsSentAt: null,
   passcode: null,
   canOpenDoor: false,
   doorSupported: false,
@@ -87,6 +95,9 @@ const REJECTED: MyAppointment = {
   slotEnd: new Date(Date.now() + 2 * 86400000 + 7200000).toISOString(),
   status: 'REJECTED',
   rejectReason: '时间不合适',
+  cancelReason: null,
+  cancelSmsStatus: null,
+  cancelSmsSentAt: null,
   passcode: null,
   canOpenDoor: false,
   doorSupported: false,
@@ -312,6 +323,54 @@ describe('MyAppointments', () => {
     await wrapper.find('.action-btn--primary').trigger('click')
     await flushPromises()
     expect(showToast).toHaveBeenCalledWith('未到开门时间')
+  })
+
+  it('shows invalidated tag and reason for cancelled records without door or passcode ops', async () => {
+    mockedList.mockResolvedValue(
+      pageResult(
+        [
+          endedAppointment('CANCELLED', { cancelReason: '房源已租出' }),
+          endedAppointment('CANCELLED')
+        ],
+        false
+      )
+    )
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.text()).toContain('已失效')
+    expect(wrapper.text()).toContain('失效原因：房源已租出')
+    expect(wrapper.text()).not.toContain('已过期')
+    expect(wrapper.findAll('.status-tag').length).toBe(2)
+    expect(wrapper.findAll('.ended-tag').length).toBe(0)
+    expect(wrapper.find('.passcode-row').exists()).toBe(false)
+    const actions = wrapper.findAll('.card-actions')
+    expect(actions.length).toBe(2)
+    for (const action of actions) {
+      expect(action.text()).not.toContain('门禁开门')
+      expect(action.text()).toContain('房源详情')
+    }
+  })
+
+  it('shows dialog instead of toast when open door blocked by rented property', async () => {
+    mockedList.mockResolvedValue(pageResult([inWindowConfirmed()], false))
+    mockedOpenDoor.mockRejectedValue(new ApiError(40901, '房源已租出，无法开门，请联系客服'))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    await wrapper.find('.action-btn--primary').trigger('click')
+    await flushPromises()
+    expect(showDialog).toHaveBeenCalledWith({ message: '房源已租出，无法开门，请联系客服' })
+    expect(showToast).not.toHaveBeenCalled()
+  })
+
+  it('shows dialog instead of toast when open door blocked by off-shelf property', async () => {
+    mockedList.mockResolvedValue(pageResult([inWindowConfirmed()], false))
+    mockedOpenDoor.mockRejectedValue(new ApiError(40902, '房源已下架，无法开门'))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    await wrapper.find('.action-btn--primary').trigger('click')
+    await flushPromises()
+    expect(showDialog).toHaveBeenCalledWith({ message: '房源已下架，无法开门' })
+    expect(showToast).not.toHaveBeenCalled()
   })
 
   it('copies passcode via clipboard and shows success toast', async () => {
