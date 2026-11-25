@@ -157,9 +157,23 @@ onMounted(load)
               />
               <div
                 v-else
-                class="property-cover"
-                :class="property.rentStatus === 'RENTED' ? 'cover-rented' : 'cover-rent'"
-              ></div>
+                class="property-cover cover-placeholder"
+                :class="{ 'cover-placeholder-gray': property.rentStatus === 'RENTED' }"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                >
+                  <path d="M3 11l9-7 9 7" />
+                  <path d="M5 10v9h14v-9" />
+                  <path d="M10 19v-5h4v5" />
+                </svg>
+                <span class="cover-placeholder-txt">暂无周边图</span>
+              </div>
               <div class="property-body">
                 <div>
                   <div class="property-title">
@@ -279,12 +293,36 @@ onMounted(load)
   flex-shrink: 0;
 }
 
-.cover-rent {
-  background: #fce8d6;
+.cover-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: linear-gradient(135deg, #fdf0e2, #f8e2cc);
+  color: var(--brand);
 }
 
-.cover-rented {
-  background: #ededeb;
+.cover-placeholder svg {
+  width: 26px;
+  height: 26px;
+  opacity: 0.9;
+}
+
+.cover-placeholder-txt {
+  font-size: 9px;
+  color: var(--brand-strong);
+  opacity: 0.75;
+  line-height: 1;
+}
+
+.cover-placeholder-gray {
+  background: linear-gradient(135deg, #f0f1f2, #e8e9ea);
+  color: var(--hint);
+}
+
+.cover-placeholder-gray .cover-placeholder-txt {
+  color: var(--muted);
 }
 
 .property-body {
