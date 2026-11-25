@@ -77,6 +77,10 @@ export function adminListProperties(params: AdminPropertyQuery = {}): Promise<Pr
   return http.get('/admin/api/properties', { params }).then((r) => r.data as Property[])
 }
 
+export function adminGetProperty(id: number | string): Promise<Property> {
+  return http.get(`/admin/api/properties/${id}`).then((r) => r.data as Property)
+}
+
 export function createProperty(input: PropertyInput): Promise<Property> {
   return http.post('/admin/api/properties', input).then((r) => r.data as Property)
 }

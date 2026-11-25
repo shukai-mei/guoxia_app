@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showSuccessToast, showToast } from 'vant'
-import { adminListBuildings, createProperty, getProperty, updateProperty } from '../../api'
+import { adminGetProperty, adminListBuildings, createProperty, updateProperty } from '../../api'
 import { ApiError } from '../../api/http'
 import type { Building, MediaInput, MediaType, PropertyInput } from '../../api/types'
 import MediaUploader, { type UploadedMedia } from '../../components/MediaUploader.vue'
@@ -54,7 +54,7 @@ onMounted(async () => {
     const list = await adminListBuildings()
     buildings.value = list
     if (isEdit.value) {
-      const property = await getProperty(propertyId as string)
+      const property = await adminGetProperty(propertyId as string)
       form.value = {
         title: property.title,
         location: property.location,

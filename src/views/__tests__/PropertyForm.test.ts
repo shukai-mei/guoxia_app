@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
 import { mountAt } from './helpers'
 import PropertyForm from '../admin/PropertyForm.vue'
+import { ApiError } from '../../api/http'
 
 vi.mock('vant', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vant')>()
@@ -14,15 +15,15 @@ vi.mock('vant', async (importOriginal) => {
 
 vi.mock('../../api', () => ({
   adminListBuildings: vi.fn(),
-  getProperty: vi.fn(),
+  adminGetProperty: vi.fn(),
   createProperty: vi.fn(),
   updateProperty: vi.fn()
 }))
 
-import { adminListBuildings, createProperty, getProperty, updateProperty } from '../../api'
+import { adminGetProperty, adminListBuildings, createProperty, updateProperty } from '../../api'
 
 const mockedListBuildings = vi.mocked(adminListBuildings)
-const mockedGetProperty = vi.mocked(getProperty)
+const mockedAdminGetProperty = vi.mocked(adminGetProperty)
 const mockedCreate = vi.mocked(createProperty)
 const mockedUpdate = vi.mocked(updateProperty)
 
@@ -83,7 +84,7 @@ describe('PropertyForm', () => {
   })
 
   it('echoes building and media in edit mode', async () => {
-    mockedGetProperty.mockResolvedValue({
+    mockedAdminGetProperty.mockResolvedValue({
       id: 5,
       title: '阳光公寓',
       location: '幸福路 1 号',
@@ -111,11 +112,51 @@ describe('PropertyForm', () => {
       (wrapper.find('input[placeholder="选填，用于预约开始前自动派发房门密码"]').element as HTMLInputElement)
         .value
     ).toBe('TTLOCK-001')
-    expect(mockedGetProperty).toHaveBeenCalledWith('5')
+    expect(mockedAdminGetProperty).toHaveBeenCalledWith('5')
+  })
+
+  it('echoes off-shelf property and saves successfully', async () => {
+    mockedAdminGetProperty.mockResolvedValue({
+      id: 6,
+      title: '下架房源',
+      location: '幸福路 2 号',
+      layout: '一室一厅',
+      area: 40,
+      rent: 2000,
+      description: null,
+      contact: '13800138000',
+      buildingId: 4,
+      building: null,
+      status: 'OFF_SHELF',
+      rentStatus: 'PENDING_RENT',
+      ttlockLockId: null,
+      media: []
+    })
+    mockedUpdate.mockResolvedValue({ id: 6 } as never)
+    const { wrapper, replaceSpy } = await mountAt(PropertyForm, '/admin/properties/6/edit')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('房源不存在')
+    expect(
+      (wrapper.find('input[placeholder="请输入房源标题"]').element as HTMLInputElement).value
+    ).toBe('下架房源')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(mockedUpdate).toHaveBeenCalledWith(
+      '6',
+      expect.objectContaining({ title: '下架房源', buildingId: 4 })
+    )
+    expect(replaceSpy).toHaveBeenCalledWith('/admin/properties')
+  })
+
+  it('shows 房源不存在 when editing a missing property', async () => {
+    mockedAdminGetProperty.mockRejectedValue(new ApiError(404, '房源不存在'))
+    const { wrapper } = await mountAt(PropertyForm, '/admin/properties/999999/edit')
+    await flushPromises()
+    expect(wrapper.text()).toContain('房源不存在')
   })
 
   it('keeps buildingId in update payload', async () => {
-    mockedGetProperty.mockResolvedValue({
+    mockedAdminGetProperty.mockResolvedValue({
       id: 5,
       title: '阳光公寓',
       location: '幸福路 1 号',

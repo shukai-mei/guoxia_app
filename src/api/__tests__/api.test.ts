@@ -4,6 +4,7 @@ import { http } from '../http'
 import {
   adminCreateBuilding,
   adminDeleteBuilding,
+  adminGetProperty,
   adminGetWechatConfig,
   adminListAppointments,
   adminListBuildings,
@@ -220,6 +221,12 @@ describe('admin property api', () => {
       (r) => r.url === '/admin/api/properties' && r.params && r.params.keyword === '阳光'
     )
     expect(request).toBeDefined()
+  })
+
+  it('adminGetProperty GET /admin/api/properties/{id}', async () => {
+    mock.onGet('/admin/api/properties/5').reply(...ok({ id: 5, status: 'OFF_SHELF' }))
+    const property = await adminGetProperty(5)
+    expect(property).toEqual({ id: 5, status: 'OFF_SHELF' })
   })
 
   it('createProperty POST /admin/api/properties with buildingId and media inputs', async () => {
