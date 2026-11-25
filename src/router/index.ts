@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { getAdminAuthToken } from '../utils/adminAuth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -32,6 +33,11 @@ const router = createRouter({
       path: '/agreement/:type',
       name: 'tenant-agreement',
       component: () => import('../views/tenant/Agreement.vue')
+    },
+    {
+      path: '/admin/login',
+      name: 'admin-login',
+      component: () => import('../views/admin/LoginView.vue')
     },
     {
       path: '/admin',
@@ -89,6 +95,19 @@ const router = createRouter({
       component: () => import('../views/admin/AdminContentConfig.vue')
     }
   ]
+})
+
+router.beforeEach((to) => {
+  if (to.path.startsWith('/admin') && to.path !== '/admin/login') {
+    if (!getAdminAuthToken()) {
+      return { path: '/admin/login', query: { redirect: to.fullPath } }
+    }
+  }
+  if (to.path === '/admin/login' && getAdminAuthToken()) {
+    const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : ''
+    return redirect || '/admin'
+  }
+  return true
 })
 
 export default router

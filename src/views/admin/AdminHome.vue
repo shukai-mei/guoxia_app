@@ -1,5 +1,10 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { showToast } from 'vant'
+import { http } from '../../api/http'
+import { clearAdminAuth } from '../../utils/adminAuth'
+import { errorMessageOf } from '../../utils/error'
 
 const router = useRouter()
 
@@ -12,8 +17,23 @@ const entries = [
   { title: '咨询内容配置', desc: '咨询常见问题与看房须知', path: '/admin/content-config' }
 ]
 
+const loggingOut = ref(false)
+
 function go(path: string) {
   router.push(path)
+}
+
+async function logout() {
+  loggingOut.value = true
+  try {
+    await http.post('/admin/api/auth/logout')
+    clearAdminAuth()
+    await router.replace('/admin/login')
+  } catch (error) {
+    showToast(errorMessageOf(error))
+  } finally {
+    loggingOut.value = false
+  }
 }
 </script>
 
@@ -33,7 +53,26 @@ function go(path: string) {
             @click="go(entry.path)"
           />
         </van-cell-group>
+
+        <div class="logout-wrap">
+          <van-button
+            round
+            block
+            plain
+            type="danger"
+            :loading="loggingOut"
+            @click="logout"
+          >
+            退出登录
+          </van-button>
+        </div>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.logout-wrap {
+  padding: 24px 16px;
+}
+</style>
