@@ -87,6 +87,7 @@ onMounted(load)
             </div>
             <div class="admin-card-desc">{{ building.address }}</div>
             <div class="admin-card-desc">{{ slotSummaryOf(building) }}</div>
+            <div class="admin-card-desc">管家：{{ building.housekeeper?.name ?? '未配置' }}</div>
             <div class="admin-card-actions">
               <van-button size="small" plain type="primary" @click="goEdit(building)">
                 编辑

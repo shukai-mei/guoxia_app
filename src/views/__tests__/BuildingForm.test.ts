@@ -15,15 +15,22 @@ vi.mock('vant', async (importOriginal) => {
 vi.mock('../../api', () => ({
   adminGetBuilding: vi.fn(),
   adminCreateBuilding: vi.fn(),
-  adminUpdateBuilding: vi.fn()
+  adminUpdateBuilding: vi.fn(),
+  listHousekeepers: vi.fn()
 }))
 
 import { showToast } from 'vant'
-import { adminCreateBuilding, adminGetBuilding, adminUpdateBuilding } from '../../api'
+import {
+  adminCreateBuilding,
+  adminGetBuilding,
+  adminUpdateBuilding,
+  listHousekeepers
+} from '../../api'
 
 const mockedGet = vi.mocked(adminGetBuilding)
 const mockedCreate = vi.mocked(adminCreateBuilding)
 const mockedUpdate = vi.mocked(adminUpdateBuilding)
+const mockedListHousekeepers = vi.mocked(listHousekeepers)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -40,6 +47,7 @@ beforeEach(() => {
     slotEndTime: '14:00',
     slotDurationMinutes: 120,
     accessDeviceSerial: 'HIK-DEV-001',
+    housekeeper: null,
     media: [{ key: '2026/map.jpg', url: 'https://signed/map.jpg', sortOrder: 0 }]
   })
 })
@@ -197,5 +205,119 @@ describe('BuildingForm', () => {
     expect(mockedCreate).toHaveBeenCalledWith(
       expect.objectContaining({ accessDeviceSerial: 'x'.repeat(64) })
     )
+  })
+
+  it('submits selected housekeeper id on create', async () => {
+    mockedCreate.mockResolvedValue({ id: 4 } as never)
+    mockedListHousekeepers.mockResolvedValue([
+      { id: 7, name: '王管家', contact: 'wx_wang', qrObjectKey: null, qrUrl: null }
+    ])
+    const { wrapper } = await mountAt(BuildingForm, '/admin/buildings/new')
+    await flushPromises()
+    await wrapper.find('input[placeholder="请输入楼栋名称"]').setValue('B栋')
+    await wrapper.find('input[placeholder="请输入地址"]').setValue('幸福路 2 号')
+    await wrapper.find('input[placeholder="请输入时段长度，至少 30 分钟"]').setValue('60')
+    const form = vmForm(wrapper).form
+    form.slotStartTime = '09:00'
+    form.slotEndTime = '10:00'
+    await wrapper.findAll('.van-field__control[readonly]')[2].trigger('click')
+    await flushPromises()
+    ;(wrapper.vm as unknown as { pickedHousekeeper: string[] }).pickedHousekeeper = ['7']
+    await wrapper.find('.van-picker__confirm').trigger('click')
+    await flushPromises()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(mockedCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ housekeeperId: 7 })
+    )
+  })
+
+  it('omits housekeeper id when none selected', async () => {
+    mockedCreate.mockResolvedValue({ id: 4 } as never)
+    mockedListHousekeepers.mockResolvedValue([])
+    const { wrapper } = await mountAt(BuildingForm, '/admin/buildings/new')
+    await flushPromises()
+    await wrapper.find('input[placeholder="请输入楼栋名称"]').setValue('B栋')
+    await wrapper.find('input[placeholder="请输入地址"]').setValue('幸福路 2 号')
+    await wrapper.find('input[placeholder="请输入时段长度，至少 30 分钟"]').setValue('60')
+    const form = vmForm(wrapper).form
+    form.slotStartTime = '09:00'
+    form.slotEndTime = '10:00'
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    const payload = mockedCreate.mock.calls[0]![0] as unknown as Record<string, unknown>
+    expect(payload.housekeeperId).toBeUndefined()
+  })
+
+  it('echoes existing housekeeper association in edit mode', async () => {
+    mockedGet.mockResolvedValue({
+      id: 3,
+      name: 'A栋',
+      address: '幸福路 1 号',
+      hasElevator: true,
+      totalFloors: 12,
+      elevatorRatio: '两梯四户',
+      deliveryFacilities: '楼下驿站',
+      livingExperience: '采光好',
+      slotStartTime: '06:00',
+      slotEndTime: '14:00',
+      slotDurationMinutes: 120,
+      accessDeviceSerial: 'HIK-DEV-001',
+      housekeeper: {
+        id: 7,
+        name: '王管家',
+        contact: 'wx_wang',
+        qrObjectKey: null,
+        qrUrl: null
+      },
+      media: []
+    })
+    mockedListHousekeepers.mockResolvedValue([
+      { id: 7, name: '王管家', contact: 'wx_wang', qrObjectKey: null, qrUrl: null }
+    ])
+    const { wrapper } = await mountAt(BuildingForm, '/admin/buildings/3/edit')
+    await flushPromises()
+    const readonlyFields = wrapper.findAll('.van-field__control[readonly]')
+    expect((readonlyFields[2].element as HTMLInputElement).value).toBe('王管家')
+  })
+
+  it('clears housekeeper association on edit submit when cleared', async () => {
+    mockedGet.mockResolvedValue({
+      id: 3,
+      name: 'A栋',
+      address: '幸福路 1 号',
+      hasElevator: true,
+      totalFloors: 12,
+      elevatorRatio: '两梯四户',
+      deliveryFacilities: '楼下驿站',
+      livingExperience: '采光好',
+      slotStartTime: '06:00',
+      slotEndTime: '14:00',
+      slotDurationMinutes: 120,
+      accessDeviceSerial: 'HIK-DEV-001',
+      housekeeper: {
+        id: 7,
+        name: '王管家',
+        contact: 'wx_wang',
+        qrObjectKey: null,
+        qrUrl: null
+      },
+      media: []
+    })
+    mockedUpdate.mockResolvedValue({ id: 3 } as never)
+    mockedListHousekeepers.mockResolvedValue([
+      { id: 7, name: '王管家', contact: 'wx_wang', qrObjectKey: null, qrUrl: null }
+    ])
+    const { wrapper } = await mountAt(BuildingForm, '/admin/buildings/3/edit')
+    await flushPromises()
+    await wrapper.findAll('.van-field__control[readonly]')[2].trigger('click')
+    await flushPromises()
+    ;(wrapper.vm as unknown as { pickedHousekeeper: string[] }).pickedHousekeeper = ['0']
+    await wrapper.find('.van-picker__confirm').trigger('click')
+    await flushPromises()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    const payload = mockedUpdate.mock.calls[0]![1] as unknown as Record<string, unknown>
+    expect(payload.housekeeperId).toBeUndefined()
   })
 })

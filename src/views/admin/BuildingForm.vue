@@ -2,9 +2,14 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showSuccessToast, showToast } from 'vant'
-import { adminCreateBuilding, adminGetBuilding, adminUpdateBuilding } from '../../api'
+import {
+  adminCreateBuilding,
+  adminGetBuilding,
+  adminUpdateBuilding,
+  listHousekeepers
+} from '../../api'
 import { ApiError } from '../../api/http'
-import type { BuildingInput, BuildingMediaItem } from '../../api/types'
+import type { BuildingInput, BuildingMediaItem, Housekeeper } from '../../api/types'
 import MediaUploader, { type UploadedMedia } from '../../components/MediaUploader.vue'
 import { errorMessageOf } from '../../utils/error'
 
@@ -37,6 +42,48 @@ const timePickerShow = ref(false)
 const timePickerTarget = ref<'start' | 'end'>('start')
 const pickedTime = ref<string[]>(['09', '00'])
 
+const housekeepers = ref<Housekeeper[]>([])
+const selectedHousekeeperId = ref<number | null>(null)
+const housekeeperPickerShow = ref(false)
+const pickedHousekeeper = ref<string[]>(['0'])
+
+const housekeeperColumns = computed(() => [
+  { text: '不选择', value: '0' },
+  ...housekeepers.value.map((housekeeper) => ({
+    text: housekeeper.name,
+    value: String(housekeeper.id)
+  }))
+])
+
+const housekeeperName = computed(() => {
+  if (selectedHousekeeperId.value == null) {
+    return ''
+  }
+  const found = housekeepers.value.find((item) => item.id === selectedHousekeeperId.value)
+  return found ? found.name : ''
+})
+
+async function loadHousekeepers() {
+  try {
+    housekeepers.value = await listHousekeepers()
+  } catch {
+    housekeepers.value = []
+  }
+}
+
+function openHousekeeperPicker() {
+  pickedHousekeeper.value = [
+    selectedHousekeeperId.value != null ? String(selectedHousekeeperId.value) : '0'
+  ]
+  housekeeperPickerShow.value = true
+}
+
+function onHousekeeperConfirm() {
+  const value = pickedHousekeeper.value[0]
+  selectedHousekeeperId.value = value && value !== '0' ? Number(value) : null
+  housekeeperPickerShow.value = false
+}
+
 function pad2(value: string): string {
   return value.padStart(2, '0')
 }
@@ -53,6 +100,7 @@ function toMediaUploaded(items: BuildingMediaItem[]): UploadedMedia[] {
 }
 
 onMounted(async () => {
+  loadHousekeepers()
   if (!isEdit.value) {
     return
   }
@@ -71,6 +119,7 @@ onMounted(async () => {
       slotDurationMinutes: String(building.slotDurationMinutes),
       accessDeviceSerial: building.accessDeviceSerial ?? ''
     }
+    selectedHousekeeperId.value = building.housekeeper?.id ?? null
     media.value = toMediaUploaded(building.media)
   } catch (error) {
     loadError.value =
@@ -151,6 +200,9 @@ function buildInput(): BuildingInput {
   }
   if (f.accessDeviceSerial.trim()) {
     input.accessDeviceSerial = f.accessDeviceSerial.trim()
+  }
+  if (selectedHousekeeperId.value != null) {
+    input.housekeeperId = selectedHousekeeperId.value
   }
   return input
 }
@@ -274,6 +326,14 @@ function goBack() {
                 label="门禁设备序列号"
                 placeholder="选填，用于预约时段内自助开门"
               />
+              <van-field
+                :model-value="housekeeperName"
+                readonly
+                is-link
+                label="管家"
+                placeholder="选填，请选择负责管家"
+                @click="openHousekeeperPicker"
+              />
             </van-cell-group>
 
             <div class="media-section">
@@ -297,6 +357,16 @@ function goBack() {
         :columns-type="['hour', 'minute']"
         @confirm="onTimeConfirm"
         @cancel="timePickerShow = false"
+      />
+    </van-popup>
+
+    <van-popup v-model:show="housekeeperPickerShow" position="bottom" round>
+      <van-picker
+        v-model="pickedHousekeeper"
+        title="选择管家"
+        :columns="housekeeperColumns"
+        @confirm="onHousekeeperConfirm"
+        @cancel="housekeeperPickerShow = false"
       />
     </van-popup>
   </div>

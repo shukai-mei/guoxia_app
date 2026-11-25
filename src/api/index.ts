@@ -8,6 +8,8 @@ import type {
   DailyPassword,
   DailyPasswordInput,
   FaqListView,
+  Housekeeper,
+  HousekeeperInput,
   MyAppointment,
   PageResult,
   Property,
@@ -17,9 +19,7 @@ import type {
   RentStatus,
   SlotList,
   UploadResult,
-  ViewingRulesView,
-  WechatConfig,
-  WechatConfigInput
+  ViewingRulesView
 } from './types'
 
 export function listProperties(params: PropertyQuery = {}): Promise<Property[]> {
@@ -45,10 +45,6 @@ export function submitAppointment(
 
 export function sendVerificationCode(phone: string): Promise<void> {
   return http.post('/api/sms/verification-codes', { phone }).then(() => undefined)
-}
-
-export function getWechatConfig(): Promise<WechatConfig> {
-  return http.get('/api/config/wechat').then((r) => r.data as WechatConfig)
 }
 
 export function getFaq(): Promise<FaqListView> {
@@ -160,12 +156,23 @@ export function resendAppointmentSms(id: number | string): Promise<Appointment> 
   return http.post(`/admin/api/appointments/${id}/resend-sms`).then((r) => r.data as Appointment)
 }
 
-export function adminGetWechatConfig(): Promise<WechatConfig> {
-  return http.get('/admin/api/config/wechat').then((r) => r.data as WechatConfig)
+export function listHousekeepers(): Promise<Housekeeper[]> {
+  return http.get('/admin/api/housekeepers').then((r) => r.data as Housekeeper[])
 }
 
-export function adminUpdateWechatConfig(input: WechatConfigInput): Promise<WechatConfig> {
-  return http.put('/admin/api/config/wechat', input).then((r) => r.data as WechatConfig)
+export function createHousekeeper(input: HousekeeperInput): Promise<Housekeeper> {
+  return http.post('/admin/api/housekeepers', input).then((r) => r.data as Housekeeper)
+}
+
+export function updateHousekeeper(
+  id: number | string,
+  input: HousekeeperInput
+): Promise<Housekeeper> {
+  return http.put(`/admin/api/housekeepers/${id}`, input).then((r) => r.data as Housekeeper)
+}
+
+export function deleteHousekeeper(id: number | string): Promise<void> {
+  return http.delete(`/admin/api/housekeepers/${id}`).then(() => undefined)
 }
 
 export function adminGetFaq(): Promise<FaqListView> {

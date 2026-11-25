@@ -10,14 +10,12 @@ vi.mock('vant', async (importOriginal) => {
 })
 
 vi.mock('../../api', () => ({
-  getProperty: vi.fn(),
-  getWechatConfig: vi.fn()
+  getProperty: vi.fn()
 }))
 
-import { getProperty, getWechatConfig } from '../../api'
+import { getProperty } from '../../api'
 
 const mockedGetProperty = vi.mocked(getProperty)
-const mockedGetWechatConfig = vi.mocked(getWechatConfig)
 
 const SUCCESS_PATH = '/booking-success/9?propertyId=5&date=2026-11-15&slotStart=10%3A00&slotEnd=12%3A00'
 
@@ -40,6 +38,13 @@ const PROPERTY: Property = {
     elevatorRatio: null,
     deliveryFacilities: null,
     livingExperience: null,
+    housekeeper: {
+      id: 7,
+      name: '王管家',
+      contact: 'guoxia',
+      qrObjectKey: '2026/qr.png',
+      qrUrl: 'https://signed/qr.png'
+    },
     media: [{ key: '2026/map.jpg', url: 'https://signed/map.jpg', sortOrder: 0 }]
   },
   status: 'AVAILABLE',
@@ -50,7 +55,6 @@ const PROPERTY: Property = {
 beforeEach(() => {
   vi.clearAllMocks()
   mockedGetProperty.mockResolvedValue(PROPERTY)
-  mockedGetWechatConfig.mockResolvedValue({ contact: 'guoxia', qrObjectKey: '2026/qr.png', qrUrl: 'https://signed/qr.png' })
 })
 
 describe('BookingSuccess', () => {
@@ -83,6 +87,20 @@ describe('BookingSuccess', () => {
     const info = wrapper.find('.success-info')
     expect(info.text()).toContain('南山区测试大道 2 号')
     expect(info.text()).toContain('地址')
+    expect(wrapper.text()).not.toContain('管家微信号')
+  })
+
+  it('hides housekeeper card when building has no housekeeper', async () => {
+    mockedGetProperty.mockResolvedValue({
+      ...PROPERTY,
+      building: { ...PROPERTY.building!, housekeeper: null }
+    })
+    const { wrapper } = await mountAt(BookingSuccess, SUCCESS_PATH)
+    await flushPromises()
+    expect(wrapper.text()).toContain('预约成功')
+    expect(wrapper.text()).not.toContain('提前添加管家微信')
+    expect(wrapper.text()).not.toContain('管家微信号')
+    expect(wrapper.find('img[src="https://signed/qr.png"]').exists()).toBe(false)
   })
 
   it('navigates to my appointments on button click', async () => {

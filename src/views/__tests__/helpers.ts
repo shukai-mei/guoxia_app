@@ -17,7 +17,8 @@ export function makeRouter() {
       { path: '/admin/properties/new', name: 'admin-property-new', component: Dummy },
       { path: '/admin/properties/:id/edit', name: 'admin-property-edit', component: Dummy },
       { path: '/admin/buildings/new', name: 'admin-building-new', component: Dummy },
-      { path: '/admin/buildings/:id/edit', name: 'admin-building-edit', component: Dummy }
+      { path: '/admin/buildings/:id/edit', name: 'admin-building-edit', component: Dummy },
+      { path: '/admin/housekeepers', name: 'admin-housekeeper-list', component: Dummy }
     ]
   })
 }

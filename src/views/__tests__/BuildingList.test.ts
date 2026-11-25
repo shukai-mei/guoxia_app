@@ -38,6 +38,28 @@ const BUILDINGS = [
     slotStartTime: '06:00',
     slotEndTime: '14:00',
     slotDurationMinutes: 120,
+    housekeeper: {
+      id: 7,
+      name: '王管家',
+      contact: 'wx_wang',
+      qrObjectKey: null,
+      qrUrl: null
+    },
+    media: []
+  },
+  {
+    id: 4,
+    name: 'B栋',
+    address: '幸福路 2 号',
+    hasElevator: false,
+    totalFloors: null,
+    elevatorRatio: null,
+    deliveryFacilities: null,
+    livingExperience: null,
+    slotStartTime: '08:00',
+    slotEndTime: '18:00',
+    slotDurationMinutes: 60,
+    housekeeper: null,
     media: []
   }
 ]
@@ -48,12 +70,14 @@ beforeEach(() => {
 })
 
 describe('BuildingList', () => {
-  it('renders building list with slot summary', async () => {
+  it('renders building list with slot summary and housekeeper column', async () => {
     const { wrapper } = await mountAt(BuildingList, '/admin/buildings')
     await flushPromises()
     expect(wrapper.text()).toContain('A栋')
     expect(wrapper.text()).toContain('幸福路 1 号')
     expect(wrapper.text()).toContain('每日 06:00~14:00，每 120 分钟')
+    expect(wrapper.text()).toContain('管家：王管家')
+    expect(wrapper.text()).toContain('管家：未配置')
   })
 
   it('deletes after confirmation and reloads', async () => {

@@ -1,66 +1,31 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { showSuccessToast, showToast } from 'vant'
-import { getFaq, getWechatConfig } from '../../api'
-import type { FaqItem, WechatConfig } from '../../api/types'
+import { getFaq } from '../../api'
+import type { FaqItem } from '../../api/types'
 import { errorMessageOf } from '../../utils/error'
-import { copyText } from '../../utils/clipboard'
 
 const loading = ref(true)
 const errorText = ref('')
 const faqItems = ref<FaqItem[]>([])
-const wechat = ref<WechatConfig | null>(null)
 const expandedIndex = ref<number | null>(null)
 
 async function load() {
   loading.value = true
   errorText.value = ''
-  const [faqResult, wechatResult] = await Promise.allSettled([
-    getFaq(),
-    getWechatConfig()
-  ])
-  if (faqResult.status === 'fulfilled') {
-    faqItems.value = faqResult.value.items
+  try {
+    const faqResult = await getFaq()
+    faqItems.value = faqResult.items
     expandedIndex.value = faqItems.value.length > 0 ? 0 : null
-  } else {
+  } catch (error) {
     faqItems.value = []
-    errorText.value = errorMessageOf(faqResult.reason)
+    errorText.value = errorMessageOf(error)
+  } finally {
+    loading.value = false
   }
-  if (wechatResult.status === 'fulfilled') {
-    const config = wechatResult.value
-    wechat.value = config.contact || config.qrUrl ? config : null
-  } else {
-    wechat.value = null
-  }
-  loading.value = false
 }
 
 function toggleFaq(index: number) {
   expandedIndex.value = expandedIndex.value === index ? null : index
-}
-
-function selectFallback(text: string) {
-  const el = document.createElement('textarea')
-  el.value = text
-  el.style.position = 'fixed'
-  el.style.opacity = '0'
-  document.body.appendChild(el)
-  el.select()
-  window.setTimeout(() => el.remove(), 3000)
-}
-
-async function onCopyWechat() {
-  const contact = wechat.value?.contact
-  if (!contact) {
-    return
-  }
-  const ok = await copyText(contact)
-  if (ok) {
-    showSuccessToast('微信号已复制')
-  } else {
-    selectFallback(contact)
-    showToast('复制失败，请手动复制微信号')
-  }
 }
 
 onMounted(load)
@@ -96,31 +61,6 @@ onMounted(load)
             </div>
             <div class="a">{{ item.answer }}</div>
           </div>
-
-          <template v-if="wechat">
-            <div class="sec">管家联系方式</div>
-            <div class="contact">
-              <div class="av">
-                <van-icon name="manager-o" />
-              </div>
-              <div class="ci">
-                <div class="cn">
-                  看房管家<span class="online">在线</span>
-                </div>
-                <div v-if="wechat.contact" class="cw">
-                  客服微信号：{{ wechat.contact }}
-                </div>
-              </div>
-            </div>
-            <button
-              v-if="wechat.contact"
-              class="copy-btn"
-              type="button"
-              @click="onCopyWechat"
-            >
-              复制微信号
-            </button>
-          </template>
         </template>
       </div>
     </div>
@@ -199,65 +139,5 @@ onMounted(load)
 
 .faq.open .a {
   display: block;
-}
-
-.contact {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #fff;
-  border: 0.5px solid var(--line);
-  border-radius: 12px;
-  padding: 14px;
-}
-
-.contact .av {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--brand-light);
-  color: var(--brand);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  flex-shrink: 0;
-}
-
-.contact .ci {
-  flex: 1;
-}
-
-.contact .cn {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.contact .online {
-  font-size: 11px;
-  color: #2d5f3f;
-  background: #eaf3ee;
-  border-radius: 6px;
-  padding: 1px 6px;
-  margin-left: 4px;
-}
-
-.contact .cw {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 3px;
-}
-
-.copy-btn {
-  display: block;
-  width: 100%;
-  background: var(--brand);
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  padding: 12px;
-  font-size: 14px;
-  font-weight: 500;
-  margin-top: 12px;
 }
 </style>

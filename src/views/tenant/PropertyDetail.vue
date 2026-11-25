@@ -85,6 +85,7 @@ const surrounding = computed(() =>
 )
 const video = computed(() => property.value?.media.find((m) => m.type === 'VIDEO'))
 const building = computed(() => property.value?.building ?? null)
+const housekeeper = computed(() => property.value?.building?.housekeeper ?? null)
 const addressMedia = computed(() =>
   [...(building.value?.media ?? [])].sort((a, b) => a.sortOrder - b.sortOrder)
 )
@@ -365,6 +366,56 @@ onMounted(async () => {
                 </div>
               </template>
             </div>
+
+            <template v-if="housekeeper">
+              <div class="section-title">管家服务</div>
+              <div class="qr-wrap">
+                <van-image
+                  v-if="housekeeper.qrUrl"
+                  :src="housekeeper.qrUrl"
+                  width="96px"
+                  height="96px"
+                  fit="cover"
+                  class="qr-real"
+                />
+                <div v-else class="qr-box">
+                  <div class="qr-grid">
+                    <div class="qr-corner tl"></div>
+                    <div class="qr-corner tr"></div>
+                    <div class="qr-corner bl"></div>
+                    <div class="qr-dot" style="left: 30px; top: 12px"></div>
+                    <div class="qr-dot" style="left: 42px; top: 28px"></div>
+                    <div class="qr-dot" style="left: 60px; top: 16px"></div>
+                    <div class="qr-dot" style="left: 28px; top: 50px"></div>
+                    <div class="qr-dot" style="left: 52px; top: 62px"></div>
+                    <div class="qr-dot" style="left: 68px; top: 48px"></div>
+                    <div class="qr-dot" style="left: 38px; top: 76px"></div>
+                    <div class="qr-dot" style="left: 66px; top: 72px"></div>
+                    <div class="qr-center">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.6"
+                        stroke-linejoin="round"
+                        stroke-linecap="round"
+                      >
+                        <path d="M3 11l9-7 9 7" />
+                        <path d="M5 10v9h14v-9" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                <div class="qr-info">
+                  <div class="name">
+                    {{ housekeeper.name }}
+                    <span class="online-tag">在线</span>
+                  </div>
+                  <div class="wx">微信号：<b>{{ housekeeper.contact }}</b></div>
+                  <div class="tip">扫码添加管家微信，咨询房源、看房及签约事宜</div>
+                </div>
+              </div>
+            </template>
           </template>
 
           <template v-if="surrounding.length > 0">
@@ -647,6 +698,148 @@ onMounted(async () => {
 
 .building-card .media-grid {
   margin-top: 10px;
+}
+
+.qr-wrap {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: #fff;
+  border: 0.5px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.qr-real {
+  flex-shrink: 0;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.qr-box {
+  width: 96px;
+  height: 96px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 7px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.qr-grid {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.qr-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid var(--ink);
+}
+
+.qr-corner.tl {
+  left: 0;
+  top: 0;
+  border-right: none;
+  border-bottom: none;
+}
+
+.qr-corner.tr {
+  right: 0;
+  top: 0;
+  border-left: none;
+  border-bottom: none;
+}
+
+.qr-corner.bl {
+  left: 0;
+  bottom: 0;
+  border-right: none;
+  border-top: none;
+}
+
+.qr-dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--ink);
+}
+
+.qr-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  border-radius: 4px;
+  background: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.qr-center svg {
+  width: 12px;
+  height: 12px;
+}
+
+.qr-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.qr-info .name {
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.online-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 1px 7px;
+  line-height: 1.5;
+  color: #2d5f3f;
+  background: #eaf3ee;
+}
+
+.online-tag::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #2d5f3f;
+}
+
+.qr-info .wx {
+  font-size: 12px;
+  color: var(--sub);
+  margin-top: 6px;
+  word-break: break-all;
+}
+
+.qr-info .wx b {
+  color: var(--ink);
+}
+
+.qr-info .tip {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+  line-height: 1.5;
 }
 
 .media-grid {

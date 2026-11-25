@@ -5,27 +5,28 @@ import {
   adminCreateBuilding,
   adminDeleteBuilding,
   adminGetProperty,
-  adminGetWechatConfig,
   adminListAppointments,
   adminListBuildings,
   adminListProperties,
   adminUpdateBuilding,
-  adminUpdateWechatConfig,
   batchUpdatePropertyStatus,
   confirmAppointment,
+  createHousekeeper,
   createProperty,
+  deleteHousekeeper,
   exchangeWechatSession,
   getDailyPassword,
   getMyAppointments,
   getProperty,
   getSlots,
-  getWechatConfig,
+  listHousekeepers,
   listProperties,
   openDoor,
   rejectAppointment,
   resendAppointmentSms,
   sendVerificationCode,
   submitAppointment,
+  updateHousekeeper,
   updateProperty,
   updatePropertyRentStatus,
   updatePropertyStatus,
@@ -133,12 +134,6 @@ describe('tenant api', () => {
       code: 400,
       message: '发送过于频繁，请稍后再试'
     })
-  })
-
-  it('getWechatConfig GET /api/config/wechat', async () => {
-    mock.onGet('/api/config/wechat').reply(...ok({ contact: 'wx', qrUrl: 'https://signed' }))
-    const config = await getWechatConfig()
-    expect(config).toEqual({ contact: 'wx', qrUrl: 'https://signed' })
   })
 
   it('exchangeWechatSession POST /api/wechat/session with code', async () => {
@@ -414,20 +409,43 @@ describe('admin appointment api', () => {
   })
 })
 
-describe('admin wechat config api', () => {
-  it('adminGetWechatConfig GET /admin/api/config/wechat', async () => {
-    mock.onGet('/admin/api/config/wechat').reply(...ok({ contact: 'wx', qrObjectKey: '2026/qr.png' }))
-    const config = await adminGetWechatConfig()
-    expect(config).toEqual({ contact: 'wx', qrObjectKey: '2026/qr.png' })
+describe('admin housekeeper api', () => {
+  it('listHousekeepers GET /admin/api/housekeepers', async () => {
+    mock
+      .onGet('/admin/api/housekeepers')
+      .reply(...ok([{ id: 1, name: '王管家', contact: 'wx_wang' }]))
+    const list = await listHousekeepers()
+    expect(list).toEqual([{ id: 1, name: '王管家', contact: 'wx_wang' }])
+    expect(mock.history.get.some((r) => r.url === '/admin/api/housekeepers')).toBe(true)
   })
 
-  it('adminUpdateWechatConfig PUT /admin/api/config/wechat', async () => {
-    mock
-      .onPut('/admin/api/config/wechat')
-      .reply(...ok({ contact: 'wx', qrObjectKey: '2026/qr.png' }))
-    const config = await adminUpdateWechatConfig({ contact: 'wx', qrObjectKey: '2026/qr.png' })
-    expect(config.contact).toBe('wx')
-    const request = mock.history.put.find((r) => r.url === '/admin/api/config/wechat')
-    expect(JSON.parse(request!.data)).toEqual({ contact: 'wx', qrObjectKey: '2026/qr.png' })
+  it('createHousekeeper POST /admin/api/housekeepers', async () => {
+    mock.onPost('/admin/api/housekeepers').reply(...ok({ id: 7, name: '王管家', contact: 'wx_wang' }))
+    const created = await createHousekeeper({ name: '王管家', contact: 'wx_wang' })
+    expect(created).toEqual({ id: 7, name: '王管家', contact: 'wx_wang' })
+    const request = mock.history.post.find((r) => r.url === '/admin/api/housekeepers')
+    expect(JSON.parse(request!.data)).toEqual({ name: '王管家', contact: 'wx_wang' })
+  })
+
+  it('updateHousekeeper PUT /admin/api/housekeepers/{id}', async () => {
+    mock.onPut('/admin/api/housekeepers/7').reply(...ok({ id: 7, name: '王管家2', contact: 'wx_wang2' }))
+    const updated = await updateHousekeeper(7, { name: '王管家2', contact: 'wx_wang2' })
+    expect(updated.name).toBe('王管家2')
+    const request = mock.history.put.find((r) => r.url === '/admin/api/housekeepers/7')
+    expect(JSON.parse(request!.data)).toEqual({ name: '王管家2', contact: 'wx_wang2' })
+  })
+
+  it('deleteHousekeeper DELETE /admin/api/housekeepers/{id}', async () => {
+    mock.onDelete('/admin/api/housekeepers/7').reply(...ok(null))
+    await deleteHousekeeper(7)
+    expect(mock.history.delete.some((r) => r.url === '/admin/api/housekeepers/7')).toBe(true)
+  })
+
+  it('deleteHousekeeper surfaces building-linked refusal', async () => {
+    mock.onDelete('/admin/api/housekeepers/7').reply(...fail(400, '该管家已关联楼栋，需先解除楼栋关联'))
+    await expect(deleteHousekeeper(7)).rejects.toMatchObject({
+      code: 400,
+      message: '该管家已关联楼栋，需先解除楼栋关联'
+    })
   })
 })

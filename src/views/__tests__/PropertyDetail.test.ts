@@ -31,8 +31,21 @@ const mockedGetSlots = vi.mocked(getSlots)
 const mockedSubmitAppointment = vi.mocked(submitAppointment)
 const mockedSendVerificationCode = vi.mocked(sendVerificationCode)
 
+const DEFAULT_BUILDING: BuildingInfo = {
+  id: 3,
+  name: 'A栋',
+  address: '幸福路 1 号',
+  hasElevator: null,
+  totalFloors: null,
+  elevatorRatio: null,
+  deliveryFacilities: null,
+  livingExperience: null,
+  housekeeper: null,
+  media: []
+}
+
 function propertyWithBuilding(
-  building: BuildingInfo | null,
+  building: Partial<BuildingInfo> | null,
   rentStatus: RentStatus = 'PENDING_RENT'
 ): Property {
   return {
@@ -45,7 +58,7 @@ function propertyWithBuilding(
     description: null,
     contact: '13800138000',
     buildingId: 3,
-    building,
+    building: building === null ? null : { ...DEFAULT_BUILDING, ...building },
     status: 'AVAILABLE',
     rentStatus,
     media: []
@@ -84,6 +97,83 @@ describe('PropertyDetail', () => {
     expect(wrapper.text()).toContain('两梯四户')
     const image = wrapper.find('img[src="https://signed/map.jpg"]')
     expect(image.exists()).toBe(true)
+  })
+
+  it('shows housekeeper service card with real qr image', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({
+        id: 3,
+        name: 'A栋',
+        address: '幸福路 1 号',
+        hasElevator: null,
+        totalFloors: null,
+        elevatorRatio: null,
+        deliveryFacilities: null,
+        livingExperience: null,
+        media: [],
+        housekeeper: {
+          id: 7,
+          name: '王管家',
+          contact: 'guoxia',
+          qrObjectKey: '2026/qr.png',
+          qrUrl: 'https://signed/qr.png'
+        }
+      })
+    )
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    expect(wrapper.text()).toContain('管家服务')
+    expect(wrapper.text()).toContain('王管家')
+    expect(wrapper.text()).toContain('在线')
+    expect(wrapper.text()).toContain('微信号：guoxia')
+    expect(wrapper.text()).toContain('扫码添加管家微信，咨询房源、看房及签约事宜')
+    expect(wrapper.find('.qr-wrap').exists()).toBe(true)
+    expect(wrapper.find('img[src="https://signed/qr.png"]').exists()).toBe(true)
+    expect(wrapper.find('.qr-box').exists()).toBe(false)
+  })
+
+  it('shows decorative qr placeholder when housekeeper has no qr url', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({
+        id: 3,
+        name: 'A栋',
+        address: '幸福路 1 号',
+        hasElevator: null,
+        totalFloors: null,
+        elevatorRatio: null,
+        deliveryFacilities: null,
+        livingExperience: null,
+        media: [],
+        housekeeper: { id: 7, name: '王管家', contact: 'guoxia', qrObjectKey: null, qrUrl: null }
+      })
+    )
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    expect(wrapper.text()).toContain('管家服务')
+    expect(wrapper.find('.qr-box').exists()).toBe(true)
+    expect(wrapper.find('.qr-center').exists()).toBe(true)
+    expect(wrapper.find('.qr-real').exists()).toBe(false)
+  })
+
+  it('hides housekeeper card when building has no housekeeper', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({
+        id: 3,
+        name: 'A栋',
+        address: '幸福路 1 号',
+        hasElevator: null,
+        totalFloors: null,
+        elevatorRatio: null,
+        deliveryFacilities: null,
+        livingExperience: null,
+        media: [],
+        housekeeper: null
+      })
+    )
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('管家服务')
+    expect(wrapper.find('.qr-wrap').exists()).toBe(false)
   })
 
   it('shows unsupported tip when property has no building and skips slot loading', async () => {

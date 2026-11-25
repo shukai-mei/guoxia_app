@@ -2,8 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showImagePreview } from 'vant'
-import { getProperty, getWechatConfig } from '../../api'
-import type { Property, WechatConfig } from '../../api/types'
+import { getProperty } from '../../api'
+import type { Property } from '../../api/types'
 import { errorMessageOf } from '../../utils/error'
 
 const route = useRoute()
@@ -17,11 +17,12 @@ const slotEnd = route.query.slotEnd as string | undefined
 const loading = ref(true)
 const errorText = ref('')
 const property = ref<Property | null>(null)
-const wechat = ref<WechatConfig | null>(null)
 
 const validParams = computed(
   () => Boolean(propertyId && date && slotStart && slotEnd)
 )
+
+const housekeeper = computed(() => property.value?.building?.housekeeper ?? null)
 
 const addressMedia = computed(() =>
   [...(property.value?.building?.media ?? [])].sort((a, b) => a.sortOrder - b.sortOrder)
@@ -42,12 +43,7 @@ async function load() {
   loading.value = true
   errorText.value = ''
   try {
-    const [propertyResult, wechatResult] = await Promise.all([
-      getProperty(propertyId as string),
-      getWechatConfig()
-    ])
-    property.value = propertyResult
-    wechat.value = wechatResult
+    property.value = await getProperty(propertyId as string)
   } catch (error) {
     errorText.value = errorMessageOf(error)
   } finally {
@@ -116,20 +112,20 @@ onMounted(load)
             </van-button>
           </div>
 
-          <template v-if="wechat && (wechat.qrUrl || wechat.contact)">
+          <template v-if="housekeeper && (housekeeper.qrUrl || housekeeper.contact)">
             <div class="section-title">提前添加管家微信</div>
             <div class="detail-card wechat-card">
               <van-image
-                v-if="wechat.qrUrl"
-                :src="wechat.qrUrl"
+                v-if="housekeeper.qrUrl"
+                :src="housekeeper.qrUrl"
                 width="160px"
                 height="160px"
                 fit="cover"
                 radius="6"
                 class="wechat-qr"
               />
-              <div v-if="wechat.contact" class="wechat-contact">
-                管家微信号：{{ wechat.contact }}
+              <div v-if="housekeeper.contact" class="wechat-contact">
+                管家微信号：{{ housekeeper.contact }}
               </div>
               <div class="wechat-hint">
                 请提前添加管家微信，预约时间段内可在我的预约中自助开启楼栋门禁、查看房门密码

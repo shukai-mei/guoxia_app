@@ -19,19 +19,20 @@ describe('AdminHome', () => {
     expect(wrapper.text()).toContain('预约管理')
     expect(wrapper.text()).toContain('楼栋管理')
     expect(wrapper.text()).toContain('每日密码')
-    expect(wrapper.text()).toContain('企微客服配置')
+    expect(wrapper.text()).toContain('管家管理')
     expect(wrapper.text()).toContain('咨询内容配置')
     expect(wrapper.text()).toContain('咨询常见问题与看房须知')
+    expect(wrapper.text()).not.toContain('企微客服配置')
   })
 
-  it('navigates to content config on entry click', async () => {
+  it('navigates to housekeeper admin on entry click', async () => {
     const { wrapper, router } = await mountAt(AdminHome, '/admin')
     const pushSpy = vi.spyOn(router, 'push')
     const cells = wrapper.findAll('.van-cell')
-    const entry = cells.find((cell) => cell.text().includes('咨询内容配置'))
+    const entry = cells.find((cell) => cell.text().includes('管家管理'))
     expect(entry).toBeDefined()
     await entry!.trigger('click')
-    expect(pushSpy).toHaveBeenCalledWith('/admin/content-config')
+    expect(pushSpy).toHaveBeenCalledWith('/admin/housekeepers')
   })
 
   it('退出登录调登出接口、清凭证并跳转登录页', async () => {

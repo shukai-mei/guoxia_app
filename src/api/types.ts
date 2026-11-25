@@ -27,6 +27,7 @@ export interface BuildingInfo {
   elevatorRatio: string | null
   deliveryFacilities: string | null
   livingExperience: string | null
+  housekeeper: Housekeeper | null
   media: BuildingMediaItem[]
 }
 
@@ -60,6 +61,7 @@ export interface Building {
   slotEndTime: string
   slotDurationMinutes: number
   accessDeviceSerial?: string | null
+  housekeeper: Housekeeper | null
   media: BuildingMediaItem[]
 }
 
@@ -83,8 +85,10 @@ export interface DailyPassword {
   passwordSet: boolean
 }
 
-export interface WechatConfig {
-  contact: string | null
+export interface Housekeeper {
+  id: number
+  name: string
+  contact: string
   qrObjectKey: string | null
   qrUrl: string | null
 }
@@ -194,6 +198,7 @@ export interface BuildingInput {
   slotEndTime: string
   slotDurationMinutes: number
   accessDeviceSerial?: string
+  housekeeperId?: number
   media: BuildingMediaInput[]
 }
 
@@ -211,8 +216,9 @@ export interface DailyPasswordInput {
   password: string
 }
 
-export interface WechatConfigInput {
-  contact?: string
+export interface HousekeeperInput {
+  name: string
+  contact: string
   qrObjectKey?: string
 }
 

@@ -85,9 +85,9 @@ const router = createRouter({
       component: () => import('../views/admin/DailyPasswordList.vue')
     },
     {
-      path: '/admin/wechat-config',
-      name: 'admin-wechat-config',
-      component: () => import('../views/admin/WechatConfig.vue')
+      path: '/admin/housekeepers',
+      name: 'admin-housekeeper-list',
+      component: () => import('../views/admin/HousekeeperAdmin.vue')
     },
     {
       path: '/admin/content-config',
