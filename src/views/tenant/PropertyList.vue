@@ -154,6 +154,7 @@ onMounted(load)
                 :src="coverOf(property)"
                 class="property-cover"
                 alt="房源图片"
+                loading="lazy"
               />
               <div
                 v-else

@@ -360,6 +360,7 @@ onMounted(async () => {
                     height="96px"
                     fit="cover"
                     radius="6"
+                    lazy-load
                     @error="refreshMedia"
                     @click="previewAddressImages(index)"
                   />
@@ -376,6 +377,7 @@ onMounted(async () => {
                   width="96px"
                   height="96px"
                   fit="cover"
+                  lazy-load
                   class="qr-real"
                 />
                 <div v-else class="qr-box">
@@ -429,6 +431,7 @@ onMounted(async () => {
                 height="96px"
                 fit="cover"
                 radius="6"
+                lazy-load
                 @error="refreshMedia"
                 @click="previewImages(surrounding, index)"
               />
@@ -443,6 +446,7 @@ onMounted(async () => {
               class="detail-video"
               controls
               playsinline
+              preload="none"
               @error="refreshMedia"
             ></video>
           </template>

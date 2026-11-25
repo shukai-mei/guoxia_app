@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
-import Vant from 'vant'
+import Vant, { Lazyload } from 'vant'
 import 'vant/lib/index.css'
 import App from './App.vue'
 import router from './router'
@@ -8,4 +8,4 @@ import { ensureIdentityInitialized } from './utils/identity'
 
 ensureIdentityInitialized()
 
-createApp(App).use(router).use(Vant).mount('#app')
+createApp(App).use(router).use(Vant).use(Lazyload).mount('#app')

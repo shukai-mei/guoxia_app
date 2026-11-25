@@ -1,10 +1,21 @@
 import { createMemoryHistory, createRouter } from 'vue-router'
-import type { Component } from 'vue'
+import type { Component, Directive } from 'vue'
 import { mount } from '@vue/test-utils'
 import { vi } from 'vitest'
 import Vant from 'vant'
 
 const Dummy = { template: '<div />' }
+
+// jsdom 无 IntersectionObserver 与布局，vant 的 lazy 指令不会触发加载；
+// 测试中直接写入 src，让图片立即渲染
+const lazyDirective: Directive<HTMLElement, string> = {
+  beforeMount(el, binding) {
+    if (binding.value) el.setAttribute('src', binding.value)
+  },
+  updated(el, binding) {
+    if (binding.value) el.setAttribute('src', binding.value)
+  }
+}
 
 export function makeRouter() {
   return createRouter({
@@ -28,7 +39,7 @@ export async function mountAt(component: Component, path: string) {
   const replaceSpy = vi.spyOn(router, 'replace')
   await router.push(path)
   await router.isReady()
-  const wrapper = mount(component, { global: { plugins: [Vant, router] } })
+  const wrapper = mount(component, { global: { plugins: [Vant, router], directives: { lazy: lazyDirective } } })
   return { wrapper, router, replaceSpy }
 }
 

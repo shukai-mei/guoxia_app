@@ -122,6 +122,7 @@ onMounted(load)
                 height="160px"
                 fit="cover"
                 radius="6"
+                lazy-load
                 class="wechat-qr"
               />
               <div v-if="housekeeper.contact" class="wechat-contact">
@@ -144,6 +145,7 @@ onMounted(load)
                 height="96px"
                 fit="cover"
                 radius="6"
+                lazy-load
                 @click="previewAddressImages(index)"
               />
             </div>
