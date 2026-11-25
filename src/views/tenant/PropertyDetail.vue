@@ -319,7 +319,7 @@ onMounted(async () => {
             <div class="detail-tags">
               <span class="spec-tag">{{ property.layout }}</span>
               <span class="spec-tag">{{ property.area }}㎡</span>
-              <span class="spec-tag spec-tag--price">¥{{ property.rent }}/月</span>
+              <span class="spec-tag spec-tag--price">{{ property.rent }}元起/月</span>
             </div>
             <div v-if="property.description" class="detail-description">
               {{ property.description }}

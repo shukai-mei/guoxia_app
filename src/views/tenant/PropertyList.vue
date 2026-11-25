@@ -175,7 +175,7 @@ onMounted(load)
                   <div class="property-meta">{{ property.layout }} · {{ property.area }}㎡</div>
                 </div>
                 <div class="property-rent">
-                  <span class="rent-value">¥{{ property.rent }}</span>
+                  <span class="rent-value">{{ property.rent }}元起</span>
                   <span class="rent-unit">/月</span>
                 </div>
               </div>
