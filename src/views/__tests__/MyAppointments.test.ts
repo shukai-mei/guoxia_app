@@ -54,6 +54,8 @@ const CONFIRMED: MyAppointment = {
   canOpenDoor: true,
   doorSupported: false,
   lockSupported: false,
+  selfOpenSupported: true,
+  housekeeper: null,
   buildingName: '阳光大厦',
   buildingAddress: '测试路 1 号',
   propertyLocation: '测试路 1 号 3 单元 502',
@@ -78,6 +80,8 @@ const PENDING: MyAppointment = {
   canOpenDoor: false,
   doorSupported: false,
   lockSupported: false,
+  selfOpenSupported: true,
+  housekeeper: null,
   buildingName: '阳光大厦',
   buildingAddress: '测试路 1 号',
   propertyLocation: '测试路 1 号 3 单元 502',
@@ -102,11 +106,21 @@ const REJECTED: MyAppointment = {
   canOpenDoor: false,
   doorSupported: false,
   lockSupported: false,
+  selfOpenSupported: true,
+  housekeeper: null,
   buildingName: '幸福大厦',
   buildingAddress: '测试路 2 号',
   propertyLocation: '测试路 2 号 1 单元 101',
   propertyLayout: '一室一厅',
   createdAt: '2026-11-13T10:00:00'
+}
+
+const HOUSEKEEPER = {
+  id: 7,
+  name: '王管家',
+  contact: '13800001111',
+  qrObjectKey: 'housekeeper/qr.png',
+  qrUrl: 'https://signed/qr.png'
 }
 
 function futureConfirmed(doorSupported: boolean, lockSupported: boolean): MyAppointment {
@@ -648,5 +662,144 @@ describe('MyAppointments', () => {
     await flushPromises()
     expect(wrapper.find('.rules').exists()).toBe(false)
     expect(wrapper.findAll('.appointment-card').length).toBe(1)
+  })
+
+  it('marks pending and confirmed selfOpenSupported false records as escort', async () => {
+    const escortConfirmed = inWindowConfirmed({
+      selfOpenSupported: false,
+      housekeeper: null,
+      passcode: null,
+      canOpenDoor: false
+    })
+    const escortPending = {
+      ...futureConfirmed(false, false),
+      id: 31,
+      status: 'PENDING' as const,
+      selfOpenSupported: false,
+      housekeeper: null
+    }
+    mockedList.mockResolvedValue(pageResult([escortConfirmed, escortPending], false))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.findAll('.escort-tip').length).toBe(2)
+  })
+
+  it('does not mark selfOpenSupported true or undefined records as escort', async () => {
+    const selfOpen = inWindowConfirmed()
+    const undefinedFlag = inWindowConfirmed({ id: 32, selfOpenSupported: undefined })
+    mockedList.mockResolvedValue(pageResult([selfOpen, undefinedFlag], false))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.findAll('.escort-tip').length).toBe(0)
+    expect(wrapper.findAll('.action-btn--primary').length).toBe(2)
+  })
+
+  it('does not mark cancelled or expired escort records as escort', async () => {
+    const cancelled = endedAppointment('CANCELLED', {
+      selfOpenSupported: false,
+      cancelReason: '房源已租出'
+    })
+    const expired = endedAppointment('CONFIRMED', { selfOpenSupported: false })
+    mockedList.mockResolvedValue(pageResult([cancelled, expired], false))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.findAll('.escort-tip').length).toBe(0)
+    expect(wrapper.text()).toContain('已失效')
+    expect(wrapper.text()).toContain('已过期')
+  })
+
+  it('escort card shows tip and hides passcode and door buttons', async () => {
+    const escort = inWindowConfirmed({
+      selfOpenSupported: false,
+      housekeeper: null,
+      passcode: '5678',
+      canOpenDoor: true,
+      doorSupported: true,
+      lockSupported: true
+    })
+    mockedList.mockResolvedValue(pageResult([escort], false))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.find('.escort-tip').exists()).toBe(true)
+    expect(wrapper.text()).toContain('本楼栋门禁不支持自助开门')
+    expect(wrapper.text()).toContain('需联系管家带看，请提前添加管家微信或拨打电话预约带看')
+    expect(wrapper.find('.passcode-row').exists()).toBe(false)
+    expect(wrapper.find('.passcode-pending').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('房门密码')
+    expect(wrapper.text()).not.toContain('门禁开门')
+    expect(wrapper.find('.escort-actions').exists()).toBe(true)
+    expect(wrapper.text()).toContain('房源详情')
+  })
+
+  it('escort card with housekeeper shows qr, name, online tag, phone and tel link', async () => {
+    const escort = inWindowConfirmed({
+      selfOpenSupported: false,
+      housekeeper: HOUSEKEEPER,
+      passcode: null,
+      canOpenDoor: false
+    })
+    mockedList.mockResolvedValue(pageResult([escort], false))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.find('.escort-qr').exists()).toBe(true)
+    expect(wrapper.find('img[src="https://signed/qr.png"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('王管家')
+    expect(wrapper.text()).toContain('在线')
+    expect(wrapper.text()).toContain('13800001111')
+    const call = wrapper.find('.escort-btn--primary')
+    expect(call.exists()).toBe(true)
+    expect(call.text()).toContain('联系管家带看')
+    expect(call.attributes('href')).toBe('tel:13800001111')
+  })
+
+  it('escort housekeeper without qr url falls back to decorative qr box', async () => {
+    const escort = inWindowConfirmed({
+      selfOpenSupported: false,
+      housekeeper: { ...HOUSEKEEPER, qrObjectKey: null, qrUrl: null },
+      passcode: null,
+      canOpenDoor: false
+    })
+    mockedList.mockResolvedValue(pageResult([escort], false))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.find('.escort-qr').exists()).toBe(true)
+    expect(wrapper.find('.qr-center').exists()).toBe(true)
+    expect(wrapper.find('.qr-real').exists()).toBe(false)
+    expect(wrapper.find('.escort-btn--primary').attributes('href')).toBe('tel:13800001111')
+  })
+
+  it('escort card without housekeeper degrades to tip and property detail only', async () => {
+    const escort = inWindowConfirmed({
+      selfOpenSupported: false,
+      housekeeper: null,
+      passcode: null,
+      canOpenDoor: false
+    })
+    mockedList.mockResolvedValue(pageResult([escort], false))
+    const { wrapper } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    expect(wrapper.find('.escort-tip').exists()).toBe(true)
+    expect(wrapper.find('.escort-qr').exists()).toBe(false)
+    expect(wrapper.find('.escort-btn--primary').exists()).toBe(false)
+    expect(wrapper.find('a[href^="tel:"]').exists()).toBe(false)
+    expect(wrapper.find('.escort-btn--ghost').exists()).toBe(true)
+    expect(wrapper.text()).toContain('房源详情')
+  })
+
+  it('escort property detail button navigates to property detail page', async () => {
+    const escort = inWindowConfirmed({
+      selfOpenSupported: false,
+      housekeeper: HOUSEKEEPER,
+      passcode: null,
+      canOpenDoor: false
+    })
+    mockedList.mockResolvedValue(pageResult([escort], false))
+    const { wrapper, router } = await mountAt(MyAppointments, '/my-appointments')
+    await flushPromises()
+    await wrapper.find('.escort-btn--ghost').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('tenant-property-detail')
+    expect(router.currentRoute.value.params.id).toBe('5')
+    expect(router.currentRoute.value.query.from).toBe('appointment')
   })
 })

@@ -28,8 +28,8 @@ const mockedCreate = vi.mocked(createProperty)
 const mockedUpdate = vi.mocked(updateProperty)
 
 const BUILDINGS = [
-  { id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, slotStartTime: '06:00', slotEndTime: '14:00', slotDurationMinutes: 120, housekeeper: null, media: [] },
-  { id: 4, name: 'B栋', address: 'y', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, slotStartTime: '06:00', slotEndTime: '14:00', slotDurationMinutes: 120, housekeeper: null, media: [] }
+  { id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, slotStartTime: '06:00', slotEndTime: '14:00', slotDurationMinutes: 120, selfOpenSupported: true, housekeeper: null, media: [] },
+  { id: 4, name: 'B栋', address: 'y', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, slotStartTime: '06:00', slotEndTime: '14:00', slotDurationMinutes: 120, selfOpenSupported: true, housekeeper: null, media: [] }
 ]
 
 async function fillBaseForm(wrapper: Awaited<ReturnType<typeof mountAt>>['wrapper']) {

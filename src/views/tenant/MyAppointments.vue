@@ -121,6 +121,14 @@ function doorUnconfirmedOf(item: MyAppointment): boolean {
   return item.status === 'PENDING' && item.doorSupported && !isAfterWindow(item)
 }
 
+function isEscortOf(item: MyAppointment): boolean {
+  return (
+    (item.status === 'PENDING' || item.status === 'CONFIRMED') &&
+    item.selfOpenSupported === false &&
+    !isAfterWindow(item)
+  )
+}
+
 async function onOpenDoor(item: MyAppointment) {
   if (openingId.value !== null) {
     return
@@ -255,52 +263,127 @@ onMounted(loadRules)
               <div v-if="item.status === 'CANCELLED' && item.cancelReason" class="card-reject">
                 失效原因：{{ item.cancelReason }}
               </div>
-              <div v-if="passcodePendingOf(item)" class="passcode-pending">
-                <div class="passcode-pending-title">房门密码：暂未下发</div>
-                <div class="passcode-pending-sub">密码将在预约时间段前5分钟下发</div>
-              </div>
-              <div v-else-if="passcodeUnconfirmedOf(item)" class="passcode-pending">
-                <div class="passcode-pending-title">房门密码：暂未下发</div>
-                <div class="passcode-pending-sub">预约确认后，密码将在预约时间段前5分钟下发</div>
-              </div>
-              <div
-                v-if="item.passcode && item.status !== 'CANCELLED' && !isAfterWindow(item)"
-                class="passcode-row"
-              >
-                <span class="passcode-label">房门密码</span>
-                <span class="passcode-value">{{ item.passcode }}</span>
-                <van-button size="mini" plain type="primary" @click.stop="onCopyPasscode(item)">
-                  复制
-                </van-button>
-              </div>
-              <div class="card-actions">
-                <van-button
-                  v-if="item.canOpenDoor && !isAfterWindow(item)"
-                  class="action-btn action-btn--primary"
-                  :loading="openingId === item.id"
-                  :disabled="openingId !== null"
-                  @click.stop="onOpenDoor(item)"
+              <template v-if="isEscortOf(item)">
+                <div class="escort-tip">
+                  <span class="ei">i</span>
+                  <div class="et">
+                    <b>本楼栋门禁不支持自助开门</b>
+                    需联系管家带看，请提前添加管家微信或拨打电话预约带看
+                  </div>
+                </div>
+                <div v-if="item.housekeeper" class="escort-qr">
+                  <div class="qr-box">
+                    <van-image
+                      v-if="item.housekeeper.qrUrl"
+                      :src="item.housekeeper.qrUrl"
+                      width="64px"
+                      height="64px"
+                      fit="cover"
+                      lazy-load
+                      class="qr-real"
+                    />
+                    <div v-else class="qr-grid">
+                      <div class="qr-corner tl"></div>
+                      <div class="qr-corner tr"></div>
+                      <div class="qr-corner bl"></div>
+                      <div class="qr-dot" style="left: 24px; top: 10px"></div>
+                      <div class="qr-dot" style="left: 34px; top: 22px"></div>
+                      <div class="qr-dot" style="left: 48px; top: 13px"></div>
+                      <div class="qr-dot" style="left: 22px; top: 40px"></div>
+                      <div class="qr-dot" style="left: 42px; top: 50px"></div>
+                      <div class="qr-dot" style="left: 54px; top: 38px"></div>
+                      <div class="qr-dot" style="left: 30px; top: 60px"></div>
+                      <div class="qr-dot" style="left: 52px; top: 58px"></div>
+                      <div class="qr-center">
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2.6"
+                          stroke-linejoin="round"
+                          stroke-linecap="round"
+                        >
+                          <path d="M3 11l9-7 9 7" />
+                          <path d="M5 10v9h14v-9" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="eq-info">
+                    <div class="nm">
+                      {{ item.housekeeper.name }}
+                      <span class="online-tag">在线</span>
+                    </div>
+                    <div class="ph">
+                      <van-icon name="phone-o" />
+                      <a :href="'tel:' + item.housekeeper.contact">{{ item.housekeeper.contact }}</a>
+                    </div>
+                    <div class="hint">扫码添加管家微信，或直接拨打电话联系带看</div>
+                  </div>
+                </div>
+                <div class="escort-actions">
+                  <a
+                    v-if="item.housekeeper"
+                    class="escort-btn escort-btn--primary"
+                    :href="'tel:' + item.housekeeper.contact"
+                    @click.stop
+                  >联系管家带看</a>
+                  <van-button
+                    class="escort-btn escort-btn--ghost"
+                    @click.stop="goPropertyDetail(item)"
+                  >
+                    房源详情
+                  </van-button>
+                </div>
+              </template>
+              <template v-else>
+                <div v-if="passcodePendingOf(item)" class="passcode-pending">
+                  <div class="passcode-pending-title">房门密码：暂未下发</div>
+                  <div class="passcode-pending-sub">密码将在预约时间段前5分钟下发</div>
+                </div>
+                <div v-else-if="passcodeUnconfirmedOf(item)" class="passcode-pending">
+                  <div class="passcode-pending-title">房门密码：暂未下发</div>
+                  <div class="passcode-pending-sub">预约确认后，密码将在预约时间段前5分钟下发</div>
+                </div>
+                <div
+                  v-if="item.passcode && item.status !== 'CANCELLED' && !isAfterWindow(item)"
+                  class="passcode-row"
                 >
-                  门禁开门
-                </van-button>
-                <van-button
-                  v-else-if="doorPendingOf(item)"
-                  class="action-btn action-btn--pending"
-                  @click.stop="onOpenDoorPending"
-                >
-                  门禁开门
-                </van-button>
-                <van-button
-                  v-else-if="doorUnconfirmedOf(item)"
-                  class="action-btn action-btn--pending"
-                  @click.stop="onOpenDoorUnconfirmed"
-                >
-                  门禁开门
-                </van-button>
-                <van-button class="action-btn action-btn--plain" @click.stop="goPropertyDetail(item)">
-                  房源详情
-                </van-button>
-              </div>
+                  <span class="passcode-label">房门密码</span>
+                  <span class="passcode-value">{{ item.passcode }}</span>
+                  <van-button size="mini" plain type="primary" @click.stop="onCopyPasscode(item)">
+                    复制
+                  </van-button>
+                </div>
+                <div class="card-actions">
+                  <van-button
+                    v-if="item.canOpenDoor && !isAfterWindow(item)"
+                    class="action-btn action-btn--primary"
+                    :loading="openingId === item.id"
+                    :disabled="openingId !== null"
+                    @click.stop="onOpenDoor(item)"
+                  >
+                    门禁开门
+                  </van-button>
+                  <van-button
+                    v-else-if="doorPendingOf(item)"
+                    class="action-btn action-btn--pending"
+                    @click.stop="onOpenDoorPending"
+                  >
+                    门禁开门
+                  </van-button>
+                  <van-button
+                    v-else-if="doorUnconfirmedOf(item)"
+                    class="action-btn action-btn--pending"
+                    @click.stop="onOpenDoorUnconfirmed"
+                  >
+                    门禁开门
+                  </van-button>
+                  <van-button class="action-btn action-btn--plain" @click.stop="goPropertyDetail(item)">
+                    房源详情
+                  </van-button>
+                </div>
+              </template>
               <div v-if="expandedId === item.id" class="card-detail">
                 <div class="detail-grid">
                   <div class="detail-cell">
@@ -579,5 +662,220 @@ onMounted(loadRules)
   font-weight: 600;
   letter-spacing: 2px;
   color: var(--brand);
+}
+
+.escort-tip {
+  background: #fff7ee;
+  border: 0.5px solid #f6dfc4;
+  border-radius: 10px;
+  padding: 11px 12px;
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.escort-tip .ei {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.escort-tip .et {
+  flex: 1;
+  font-size: 11px;
+  color: var(--brand-strong);
+  line-height: 1.5;
+}
+
+.escort-tip .et b {
+  display: block;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.escort-qr {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: #fff;
+  border: 0.5px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 10px;
+}
+
+.escort-qr .qr-box {
+  width: 76px;
+  height: 76px;
+  padding: 6px;
+  flex-shrink: 0;
+  position: relative;
+  border-radius: 8px;
+  border: 0.5px solid var(--line);
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.escort-qr .qr-real {
+  border-radius: 6px;
+}
+
+.escort-qr .qr-grid {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.escort-qr .qr-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid var(--ink);
+}
+
+.escort-qr .qr-corner.tl {
+  left: 0;
+  top: 0;
+  border-right: none;
+  border-bottom: none;
+}
+
+.escort-qr .qr-corner.tr {
+  right: 0;
+  top: 0;
+  border-left: none;
+  border-bottom: none;
+}
+
+.escort-qr .qr-corner.bl {
+  left: 0;
+  bottom: 0;
+  border-right: none;
+  border-top: none;
+}
+
+.escort-qr .qr-dot {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: var(--ink);
+}
+
+.escort-qr .qr-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 15px;
+  height: 15px;
+  transform: translate(-50%, -50%);
+  border-radius: 4px;
+  background: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.escort-qr .qr-center svg {
+  width: 10px;
+  height: 10px;
+}
+
+.escort-qr .eq-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.escort-qr .eq-info .nm {
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.escort-qr .eq-info .ph {
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 600;
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.escort-qr .eq-info .ph a {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+.escort-qr .eq-info .hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.online-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 1px 7px;
+  line-height: 1.5;
+  color: #2d5f3f;
+  background: #eaf3ee;
+}
+
+.online-tag::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #2d5f3f;
+}
+
+.escort-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.escort-btn {
+  flex: 1;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-sizing: border-box;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.escort-btn--primary {
+  background: var(--brand);
+  color: #fff;
+}
+
+.escort-btn--ghost {
+  background: #fff;
+  color: var(--brand);
+  border: 0.5px solid var(--brand);
 }
 </style>

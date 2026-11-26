@@ -61,6 +61,7 @@ export interface Building {
   slotEndTime: string
   slotDurationMinutes: number
   accessDeviceSerial?: string | null
+  selfOpenSupported: boolean
   housekeeper: Housekeeper | null
   media: BuildingMediaItem[]
 }
@@ -150,6 +151,8 @@ export interface MyAppointment {
   canOpenDoor: boolean
   doorSupported: boolean
   lockSupported: boolean
+  selfOpenSupported: boolean
+  housekeeper: Housekeeper | null
   buildingName: string | null
   buildingAddress: string | null
   propertyLocation: string | null
@@ -198,6 +201,7 @@ export interface BuildingInput {
   slotEndTime: string
   slotDurationMinutes: number
   accessDeviceSerial?: string
+  selfOpenSupported?: boolean
   housekeeperId?: number
   media: BuildingMediaInput[]
 }

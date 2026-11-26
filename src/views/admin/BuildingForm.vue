@@ -30,7 +30,8 @@ const form = ref({
   slotStartTime: '',
   slotEndTime: '',
   slotDurationMinutes: '',
-  accessDeviceSerial: ''
+  accessDeviceSerial: '',
+  selfOpenSupported: false
 })
 const media = ref<UploadedMedia[]>([])
 
@@ -117,7 +118,8 @@ onMounted(async () => {
       slotStartTime: building.slotStartTime,
       slotEndTime: building.slotEndTime,
       slotDurationMinutes: String(building.slotDurationMinutes),
-      accessDeviceSerial: building.accessDeviceSerial ?? ''
+      accessDeviceSerial: building.accessDeviceSerial ?? '',
+      selfOpenSupported: building.selfOpenSupported ?? false
     }
     selectedHousekeeperId.value = building.housekeeper?.id ?? null
     media.value = toMediaUploaded(building.media)
@@ -186,6 +188,7 @@ function buildInput(): BuildingInput {
     media: media.value.map((item, index) => ({ key: item.key, sortOrder: index }))
   }
   input.hasElevator = f.hasElevator
+  input.selfOpenSupported = f.selfOpenSupported
   if (f.totalFloors.trim()) {
     input.totalFloors = Number(f.totalFloors)
   }
@@ -326,6 +329,12 @@ function goBack() {
                 label="门禁设备序列号"
                 placeholder="选填，用于预约时段内自助开门"
               />
+              <van-field name="selfOpenSupported" label="支持自助开门">
+                <template #input>
+                  <van-switch v-model="form.selfOpenSupported" size="20px" />
+                  <span class="switch-hint">关闭表示需管家带看</span>
+                </template>
+              </van-field>
               <van-field
                 :model-value="housekeeperName"
                 readonly
@@ -388,5 +397,11 @@ function goBack() {
 
 .submit-wrap {
   padding: 16px;
+}
+
+.switch-hint {
+  margin-left: 10px;
+  font-size: 12px;
+  color: #969799;
 }
 </style>

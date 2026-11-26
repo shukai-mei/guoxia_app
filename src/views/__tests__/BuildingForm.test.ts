@@ -47,6 +47,7 @@ beforeEach(() => {
     slotEndTime: '14:00',
     slotDurationMinutes: 120,
     accessDeviceSerial: 'HIK-DEV-001',
+    selfOpenSupported: true,
     housekeeper: null,
     media: [{ key: '2026/map.jpg', url: 'https://signed/map.jpg', sortOrder: 0 }]
   })
@@ -61,8 +62,20 @@ async function confirmTimePicker(wrapper: Wrapper) {
 
 function vmForm(wrapper: Wrapper) {
   return wrapper.vm as unknown as {
-    form: { slotStartTime: string; slotEndTime: string; accessDeviceSerial: string }
+    form: {
+      slotStartTime: string
+      slotEndTime: string
+      accessDeviceSerial: string
+      selfOpenSupported: boolean
+    }
   }
+}
+
+function selfOpenSwitch(wrapper: Wrapper) {
+  const field = wrapper
+    .findAll('.van-field')
+    .find((item) => item.text().includes('支持自助开门'))
+  return field!.find('.van-switch')
 }
 
 describe('BuildingForm', () => {
@@ -263,6 +276,7 @@ describe('BuildingForm', () => {
       slotEndTime: '14:00',
       slotDurationMinutes: 120,
       accessDeviceSerial: 'HIK-DEV-001',
+      selfOpenSupported: true,
       housekeeper: {
         id: 7,
         name: '王管家',
@@ -295,6 +309,7 @@ describe('BuildingForm', () => {
       slotEndTime: '14:00',
       slotDurationMinutes: 120,
       accessDeviceSerial: 'HIK-DEV-001',
+      selfOpenSupported: true,
       housekeeper: {
         id: 7,
         name: '王管家',
@@ -319,5 +334,77 @@ describe('BuildingForm', () => {
     await flushPromises()
     const payload = mockedUpdate.mock.calls[0]![1] as unknown as Record<string, unknown>
     expect(payload.housekeeperId).toBeUndefined()
+  })
+
+  it('submits selfOpenSupported false by default on create', async () => {
+    mockedCreate.mockResolvedValue({ id: 4 } as never)
+    const { wrapper } = await mountAt(BuildingForm, '/admin/buildings/new')
+    await flushPromises()
+    await wrapper.find('input[placeholder="请输入楼栋名称"]').setValue('B栋')
+    await wrapper.find('input[placeholder="请输入地址"]').setValue('幸福路 2 号')
+    await wrapper.find('input[placeholder="请输入时段长度，至少 30 分钟"]').setValue('60')
+    const form = vmForm(wrapper).form
+    form.slotStartTime = '09:00'
+    form.slotEndTime = '10:00'
+    expect(form.selfOpenSupported).toBe(false)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(mockedCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ selfOpenSupported: false })
+    )
+  })
+
+  it('renders selfOpenSupported switch default off and submits toggled value', async () => {
+    mockedCreate.mockResolvedValue({ id: 4 } as never)
+    const { wrapper } = await mountAt(BuildingForm, '/admin/buildings/new')
+    await flushPromises()
+    expect(wrapper.text()).toContain('支持自助开门')
+    expect(wrapper.text()).toContain('关闭表示需管家带看')
+    const sw = selfOpenSwitch(wrapper)
+    expect(sw.exists()).toBe(true)
+    expect(sw.classes()).not.toContain('van-switch--on')
+    await sw.trigger('click')
+    await flushPromises()
+    expect(vmForm(wrapper).form.selfOpenSupported).toBe(true)
+    await wrapper.find('input[placeholder="请输入楼栋名称"]').setValue('B栋')
+    await wrapper.find('input[placeholder="请输入地址"]').setValue('幸福路 2 号')
+    await wrapper.find('input[placeholder="请输入时段长度，至少 30 分钟"]').setValue('60')
+    const form = vmForm(wrapper).form
+    form.slotStartTime = '09:00'
+    form.slotEndTime = '10:00'
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(mockedCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ selfOpenSupported: true })
+    )
+  })
+
+  it('echoes existing selfOpenSupported in edit mode and submits it', async () => {
+    mockedUpdate.mockResolvedValue({ id: 3 } as never)
+    const { wrapper } = await mountAt(BuildingForm, '/admin/buildings/3/edit')
+    await flushPromises()
+    expect(vmForm(wrapper).form.selfOpenSupported).toBe(true)
+    expect(selfOpenSwitch(wrapper).classes()).toContain('van-switch--on')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(mockedUpdate).toHaveBeenCalledWith(
+      '3',
+      expect.objectContaining({ selfOpenSupported: true })
+    )
+  })
+
+  it('submits selfOpenSupported false after toggling off in edit mode', async () => {
+    mockedUpdate.mockResolvedValue({ id: 3 } as never)
+    const { wrapper } = await mountAt(BuildingForm, '/admin/buildings/3/edit')
+    await flushPromises()
+    await selfOpenSwitch(wrapper).trigger('click')
+    await flushPromises()
+    expect(vmForm(wrapper).form.selfOpenSupported).toBe(false)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(mockedUpdate).toHaveBeenCalledWith(
+      '3',
+      expect.objectContaining({ selfOpenSupported: false })
+    )
   })
 })

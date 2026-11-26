@@ -38,6 +38,7 @@ const BUILDINGS = [
     slotStartTime: '06:00',
     slotEndTime: '14:00',
     slotDurationMinutes: 120,
+    selfOpenSupported: true,
     housekeeper: {
       id: 7,
       name: '王管家',
@@ -59,6 +60,7 @@ const BUILDINGS = [
     slotStartTime: '08:00',
     slotEndTime: '18:00',
     slotDurationMinutes: 60,
+    selfOpenSupported: true,
     housekeeper: null,
     media: []
   }
