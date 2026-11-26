@@ -13,3 +13,7 @@ export function errorMessageOf(error: unknown): string {
 export function isPropertyUnavailableError(code: number | null | undefined): boolean {
   return code === 40901 || code === 40902
 }
+
+export function isShelfDeviceBlockedError(code: number | null | undefined): boolean {
+  return code === 40903
+}

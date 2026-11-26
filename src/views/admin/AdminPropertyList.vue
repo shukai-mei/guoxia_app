@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
+import { showConfirmDialog, showDialog, showSuccessToast, showToast } from 'vant'
 import {
   adminListProperties,
   batchUpdatePropertyStatus,
@@ -9,7 +9,8 @@ import {
   updatePropertyStatus
 } from '../../api'
 import type { Property, PropertyStatus, RentStatus } from '../../api/types'
-import { errorMessageOf } from '../../utils/error'
+import { ApiError } from '../../api/http'
+import { errorMessageOf, isShelfDeviceBlockedError } from '../../utils/error'
 
 const router = useRouter()
 
@@ -120,7 +121,11 @@ async function onBatchPublish() {
     showSuccessToast('上架成功')
     await load()
   } catch (error) {
-    showToast(errorMessageOf(error))
+    if (error instanceof ApiError && isShelfDeviceBlockedError(error.code)) {
+      showDialog({ message: error.message })
+    } else {
+      showToast(errorMessageOf(error))
+    }
   }
 }
 
@@ -140,7 +145,11 @@ async function toggleStatus(property: Property) {
     showSuccessToast(`${actionText}成功`)
     await load()
   } catch (error) {
-    showToast(errorMessageOf(error))
+    if (error instanceof ApiError && isShelfDeviceBlockedError(error.code)) {
+      showDialog({ message: error.message })
+    } else {
+      showToast(errorMessageOf(error))
+    }
   }
 }
 

@@ -10,7 +10,8 @@ vi.mock('vant', async (importOriginal) => {
     ...actual,
     showToast: vi.fn(),
     showSuccessToast: vi.fn(),
-    showConfirmDialog: vi.fn()
+    showConfirmDialog: vi.fn(),
+    showDialog: vi.fn()
   }
 })
 
@@ -21,16 +22,19 @@ vi.mock('../../api', () => ({
   updatePropertyStatus: vi.fn()
 }))
 
-import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
+import { showConfirmDialog, showDialog, showSuccessToast, showToast } from 'vant'
 import {
   adminListProperties,
   batchUpdatePropertyStatus,
-  updatePropertyRentStatus
+  updatePropertyRentStatus,
+  updatePropertyStatus
 } from '../../api'
+import { ApiError } from '../../api/http'
 
 const mockedList = vi.mocked(adminListProperties)
 const mockedBatch = vi.mocked(batchUpdatePropertyStatus)
 const mockedRentStatus = vi.mocked(updatePropertyRentStatus)
+const mockedUpdateStatus = vi.mocked(updatePropertyStatus)
 
 function propertyOf(
   id: number,
@@ -244,5 +248,69 @@ describe('AdminPropertyList', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('没有符合条件的房源')
     expect(wrapper.text()).toContain('清除筛选')
+  })
+
+  it('single publish blocked by device check shows blocking dialog', async () => {
+    mockedList.mockResolvedValue([propertyOf(1, '阳光公寓', 'OFF_SHELF')])
+    vi.mocked(showConfirmDialog).mockResolvedValue(undefined)
+    mockedUpdateStatus.mockRejectedValue(
+      new ApiError(40903, '房源「阳光公寓」无法上架：请先填写房源锁设备号、楼栋门禁设备号')
+    )
+    const { wrapper } = await mountAt(AdminPropertyList, '/admin/properties')
+    await flushPromises()
+
+    const actions = wrapper.findAll('.admin-card-actions .van-button')
+    const publishButton = actions.find((b) => b.text() === '上架')
+    await publishButton!.trigger('click')
+    await flushPromises()
+
+    expect(mockedUpdateStatus).toHaveBeenCalledWith(1, 'AVAILABLE')
+    expect(showDialog).toHaveBeenCalledWith({
+      message: '房源「阳光公寓」无法上架：请先填写房源锁设备号、楼栋门禁设备号'
+    })
+    expect(showToast).not.toHaveBeenCalled()
+  })
+
+  it('single publish other error still shows toast', async () => {
+    mockedList.mockResolvedValue([propertyOf(1, '阳光公寓', 'OFF_SHELF')])
+    vi.mocked(showConfirmDialog).mockResolvedValue(undefined)
+    mockedUpdateStatus.mockRejectedValue(new ApiError(404, '房源不存在'))
+    const { wrapper } = await mountAt(AdminPropertyList, '/admin/properties')
+    await flushPromises()
+
+    const actions = wrapper.findAll('.admin-card-actions .van-button')
+    const publishButton = actions.find((b) => b.text() === '上架')
+    await publishButton!.trigger('click')
+    await flushPromises()
+
+    expect(showToast).toHaveBeenCalledWith('房源不存在')
+    expect(showDialog).not.toHaveBeenCalled()
+  })
+
+  it('batch publish blocked by device check shows blocking dialog with summary', async () => {
+    mockedList.mockResolvedValue([
+      propertyOf(1, '阳光公寓', 'OFF_SHELF'),
+      propertyOf(2, '幸福里', 'OFF_SHELF')
+    ])
+    vi.mocked(showConfirmDialog).mockResolvedValue(undefined)
+    mockedBatch.mockRejectedValue(
+      new ApiError(40903, '以下房源设备未配置，无法上架：「阳光公寓」缺房源锁设备号；「幸福里」缺楼栋门禁设备号')
+    )
+    const { wrapper } = await mountAt(AdminPropertyList, '/admin/properties')
+    await flushPromises()
+
+    const checkboxes = wrapper.findAllComponents({ name: 'VanCheckbox' })
+    await checkboxes[1].vm.$emit('update:model-value', true)
+    await checkboxes[2].vm.$emit('update:model-value', true)
+    await flushPromises()
+    await wrapper.find('.batch-bar .van-button').trigger('click')
+    await flushPromises()
+
+    expect(mockedBatch).toHaveBeenCalledWith([1, 2], 'AVAILABLE')
+    expect(showDialog).toHaveBeenCalledWith({
+      message: '以下房源设备未配置，无法上架：「阳光公寓」缺房源锁设备号；「幸福里」缺楼栋门禁设备号'
+    })
+    expect(showToast).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('批量上架(2)')
   })
 })
