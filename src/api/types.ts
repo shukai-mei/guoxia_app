@@ -27,6 +27,7 @@ export interface BuildingInfo {
   elevatorRatio: string | null
   deliveryFacilities: string | null
   livingExperience: string | null
+  selfOpenSupported: boolean
   housekeeper: Housekeeper | null
   media: BuildingMediaItem[]
 }

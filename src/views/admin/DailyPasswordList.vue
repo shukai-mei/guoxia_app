@@ -39,7 +39,7 @@ async function loadProperties() {
   loading.value = true
   errorText.value = ''
   try {
-    properties.value = await adminListProperties()
+    properties.value = (await adminListProperties()).items
     loaded.value = true
   } catch (error) {
     errorText.value = errorMessageOf(error)

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
+import type { ListInstance } from 'vant'
 import { listProperties } from '../../api'
 import type { Property, RentStatus } from '../../api/types'
 import { errorMessageOf } from '../../utils/error'
@@ -20,11 +21,17 @@ const RENT_STATUS_OPTIONS = [
   { text: '已租出', value: 'RENTED' }
 ]
 
+const listRef = ref<ListInstance | null>(null)
 const loading = ref(false)
 const loaded = ref(false)
 const refreshing = ref(false)
+const finished = ref(false)
+const listError = ref(false)
 const errorText = ref('')
 const properties = ref<Property[]>([])
+const page = ref(1)
+
+let loadGeneration = 0
 
 function buildParams(): {
   keyword?: string
@@ -53,25 +60,74 @@ function buildParams(): {
   return params
 }
 
-async function load() {
-  loading.value = true
-  errorText.value = ''
+async function fetchPage() {
+  const generation = loadGeneration
   try {
-    properties.value = await listProperties(buildParams())
+    const result = await listProperties(buildParams(), page.value)
+    if (generation !== loadGeneration) {
+      return
+    }
+    properties.value.push(...result.items)
+    page.value += 1
+    finished.value = !result.hasMore
+    listError.value = false
     loaded.value = true
+    errorText.value = ''
   } catch (error) {
-    errorText.value = errorMessageOf(error)
+    if (generation !== loadGeneration) {
+      return
+    }
+    if (properties.value.length === 0) {
+      errorText.value = errorMessageOf(error)
+    } else {
+      listError.value = true
+      showToast(errorMessageOf(error))
+    }
   } finally {
-    loading.value = false
+    if (generation === loadGeneration) {
+      loading.value = false
+    }
   }
+}
+
+function onLoad() {
+  fetchPage()
+}
+
+function resetPage() {
+  loadGeneration += 1
+  properties.value = []
+  page.value = 1
+  finished.value = false
+  listError.value = false
+  errorText.value = ''
+  loaded.value = false
+  loading.value = false
+}
+
+function reload() {
+  resetPage()
+  nextTick(() => listRef.value?.check())
 }
 
 async function onRefresh() {
   refreshing.value = true
+  const generation = ++loadGeneration
   try {
-    properties.value = await listProperties(buildParams())
+    const result = await listProperties(buildParams(), 1)
+    if (generation !== loadGeneration) {
+      return
+    }
+    properties.value = result.items
+    page.value = 2
+    finished.value = !result.hasMore
+    listError.value = false
+    loaded.value = true
     errorText.value = ''
   } catch (error) {
+    if (generation !== loadGeneration) {
+      return
+    }
     if (properties.value.length === 0) {
       errorText.value = errorMessageOf(error)
     } else {
@@ -82,9 +138,7 @@ async function onRefresh() {
   }
 }
 
-watch(rentStatus, () => {
-  load()
-})
+watch(rentStatus, reload)
 
 function coverOf(property: Property): string | undefined {
   return property.media
@@ -95,8 +149,6 @@ function coverOf(property: Property): string | undefined {
 function openDetail(property: Property) {
   router.push(`/properties/${property.id}`)
 }
-
-onMounted(load)
 </script>
 
 <template>
@@ -107,8 +159,8 @@ onMounted(load)
       <van-search
         v-model="keyword"
         placeholder="搜索标题或位置"
-        @search="load"
-        @clear="load"
+        @search="reload"
+        @clear="reload"
       />
       <div class="filter-chips">
         <div
@@ -124,78 +176,101 @@ onMounted(load)
       <div class="rent-filter">
         <van-field v-model="rentMin" type="digit" placeholder="¥ 最低" class="rent-field" />
         <van-field v-model="rentMax" type="digit" placeholder="¥ 最高" class="rent-field" />
-        <van-button size="small" type="primary" class="filter-btn" @click="load">筛选</van-button>
+        <van-button size="small" type="primary" class="filter-btn" @click="reload">筛选</van-button>
       </div>
     </div>
 
     <div class="page">
       <div class="page-content">
         <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
-          <van-loading v-if="loading && !loaded" class="state-block">
-            加载中...
-          </van-loading>
+          <van-list
+            ref="listRef"
+            v-model:loading="loading"
+            :finished="finished"
+            :finished-text="properties.length === 0 ? '' : '没有更多了'"
+            :error="listError"
+            error-text="加载失败，点击重试"
+            @update:error="listError = $event"
+            @load="onLoad"
+          >
+            <van-loading v-if="loading && !loaded" class="state-block">
+              加载中...
+            </van-loading>
 
-          <van-empty v-else-if="errorText" image="error" :description="errorText">
-            <van-button size="small" type="primary" @click="load">重试</van-button>
-          </van-empty>
+            <van-empty v-else-if="errorText" image="error" :description="errorText">
+              <van-button size="small" type="primary" @click="reload">重试</van-button>
+            </van-empty>
 
-          <van-empty v-else-if="loaded && properties.length === 0" description="暂无在租房源" />
+            <van-empty v-else-if="loaded && properties.length === 0" description="暂无在租房源" />
 
-          <div v-else class="property-list">
-            <div
-              v-for="property in properties"
-              :key="property.id"
-              class="property-card"
-              :class="{ 'property-card-rented': property.rentStatus === 'RENTED' }"
-              @click="openDetail(property)"
-            >
-              <img
-                v-if="coverOf(property)"
-                :src="coverOf(property)"
-                class="property-cover"
-                alt="房源图片"
-                loading="lazy"
-              />
+            <div v-else class="property-list">
               <div
-                v-else
-                class="property-cover cover-placeholder"
-                :class="{ 'cover-placeholder-gray': property.rentStatus === 'RENTED' }"
+                v-for="property in properties"
+                :key="property.id"
+                class="property-card"
+                :class="{ 'property-card-rented': property.rentStatus === 'RENTED' }"
+                @click="openDetail(property)"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linejoin="round"
-                  stroke-linecap="round"
+                <img
+                  v-if="coverOf(property)"
+                  :src="coverOf(property)"
+                  class="property-cover"
+                  alt="房源图片"
+                  loading="lazy"
+                />
+                <div
+                  v-else
+                  class="property-cover cover-placeholder"
+                  :class="{ 'cover-placeholder-gray': property.rentStatus === 'RENTED' }"
                 >
-                  <path d="M3 11l9-7 9 7" />
-                  <path d="M5 10v9h14v-9" />
-                  <path d="M10 19v-5h4v5" />
-                </svg>
-                <span class="cover-placeholder-txt">暂无周边图</span>
-              </div>
-              <div class="property-body">
-                <div>
-                  <div class="property-title">
-                    {{ property.title }}
-                    <span
-                      class="status-tag"
-                      :class="property.rentStatus === 'RENTED' ? 'status-tag--rented' : 'status-tag--rent'"
-                    >
-                      {{ property.rentStatus === 'RENTED' ? '已租出' : '待租' }}
-                    </span>
-                  </div>
-                  <div class="property-location">{{ property.location }}</div>
-                  <div class="property-meta">{{ property.layout }} · {{ property.area }}㎡</div>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linejoin="round"
+                    stroke-linecap="round"
+                  >
+                    <path d="M3 11l9-7 9 7" />
+                    <path d="M5 10v9h14v-9" />
+                    <path d="M10 19v-5h4v5" />
+                  </svg>
+                  <span class="cover-placeholder-txt">暂无周边图</span>
                 </div>
-                <div class="property-rent">
-                  <span class="rent-value">{{ property.rent }}元起</span>
-                  <span class="rent-unit">/月</span>
+                <div class="property-body">
+                  <div>
+                    <div class="property-title">
+                      {{ property.title }}
+                      <span
+                        class="status-tag"
+                        :class="property.rentStatus === 'RENTED' ? 'status-tag--rented' : 'status-tag--rent'"
+                      >
+                        {{ property.rentStatus === 'RENTED' ? '已租出' : '待租' }}
+                      </span>
+                    </div>
+                    <div class="property-location">{{ property.location }}</div>
+                    <div
+                      v-if="property.building && property.rentStatus !== 'RENTED'"
+                      class="visit-row"
+                    >
+                      <span class="lab">看房</span>
+                      <span
+                        class="visit-tag"
+                        :class="property.building.selfOpenSupported ? 'self' : 'escort'"
+                      >
+                        {{ property.building.selfOpenSupported ? '自助看房' : '管家带看' }}
+                      </span>
+                    </div>
+                    <div class="property-meta">{{ property.layout }} · {{ property.area }}㎡</div>
+                  </div>
+                  <div class="property-rent">
+                    <span class="rent-value">{{ property.rent }}元起</span>
+                    <span class="rent-unit">/月</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </van-list>
         </van-pull-refresh>
       </div>
     </div>
@@ -349,6 +424,40 @@ onMounted(load)
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.visit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.visit-row .lab {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.visit-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 1px 7px;
+  line-height: 1.5;
+}
+
+.visit-tag.self {
+  color: #2d5f3f;
+  background: #eaf3ee;
+}
+
+.visit-tag.escort {
+  color: #c75e18;
+  background: var(--brand-light);
 }
 
 .property-meta {

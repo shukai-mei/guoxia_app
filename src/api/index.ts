@@ -22,8 +22,10 @@ import type {
   ViewingRulesView
 } from './types'
 
-export function listProperties(params: PropertyQuery = {}): Promise<Property[]> {
-  return http.get('/api/properties', { params }).then((r) => r.data as Property[])
+export function listProperties(params: PropertyQuery = {}, page?: number): Promise<PageResult<Property>> {
+  return http
+    .get('/api/properties', { params: { ...params, ...(page === undefined ? {} : { page }) } })
+    .then((r) => r.data as PageResult<Property>)
 }
 
 export function getProperty(id: number | string): Promise<Property> {
@@ -69,8 +71,13 @@ export function openDoor(id: number | string): Promise<void> {
   return http.post(`/api/me/appointments/${id}/open-door`).then(() => undefined)
 }
 
-export function adminListProperties(params: AdminPropertyQuery = {}): Promise<Property[]> {
-  return http.get('/admin/api/properties', { params }).then((r) => r.data as Property[])
+export function adminListProperties(
+  params: AdminPropertyQuery = {},
+  page?: number
+): Promise<PageResult<Property>> {
+  return http
+    .get('/admin/api/properties', { params: { ...params, ...(page === undefined ? {} : { page }) } })
+    .then((r) => r.data as PageResult<Property>)
 }
 
 export function adminGetProperty(id: number | string): Promise<Property> {
@@ -118,8 +125,10 @@ export function uploadFile(file: File): Promise<UploadResult> {
   return http.post('/admin/api/files', formData).then((r) => r.data as UploadResult)
 }
 
-export function adminListBuildings(): Promise<Building[]> {
-  return http.get('/admin/api/buildings').then((r) => r.data as Building[])
+export function adminListBuildings(page?: number): Promise<PageResult<Building>> {
+  return http
+    .get('/admin/api/buildings', { params: page === undefined ? undefined : { page } })
+    .then((r) => r.data as PageResult<Building>)
 }
 
 export function adminGetBuilding(id: number | string): Promise<Building> {

@@ -68,7 +68,7 @@ const BUILDINGS = [
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockedList.mockResolvedValue(BUILDINGS)
+  mockedList.mockResolvedValue({ items: BUILDINGS, page: 1, size: 20, hasMore: false })
 })
 
 describe('BuildingList', () => {
@@ -111,5 +111,18 @@ describe('BuildingList', () => {
     await wrapper.find('.admin-card-actions button:nth-child(2)').trigger('click')
     await flushPromises()
     expect(mockedDelete).not.toHaveBeenCalled()
+  })
+
+  it('loads next page and appends buildings', async () => {
+    mockedList
+      .mockResolvedValueOnce({ items: [BUILDINGS[0]], page: 1, size: 20, hasMore: true })
+      .mockResolvedValueOnce({ items: [BUILDINGS[1]], page: 2, size: 20, hasMore: false })
+    const { wrapper } = await mountAt(BuildingList, '/admin/buildings')
+    await flushPromises()
+    expect(wrapper.text()).toContain('A栋')
+    expect(wrapper.text()).toContain('B栋')
+    expect(mockedList).toHaveBeenCalledTimes(2)
+    expect(mockedList).toHaveBeenNthCalledWith(1, 1)
+    expect(mockedList).toHaveBeenNthCalledWith(2, 2)
   })
 })

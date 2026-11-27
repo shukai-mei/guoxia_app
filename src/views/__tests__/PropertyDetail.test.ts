@@ -40,6 +40,7 @@ const DEFAULT_BUILDING: BuildingInfo = {
   elevatorRatio: null,
   deliveryFacilities: null,
   livingExperience: null,
+  selfOpenSupported: true,
   housekeeper: null,
   media: []
 }
@@ -620,5 +621,51 @@ describe('PropertyDetail', () => {
     await flushPromises()
     expect(showDialog).toHaveBeenCalledWith({ message: '房源已下架，无法预约看房' })
     expect(showToast).not.toHaveBeenCalled()
+  })
+
+  it('shows self-open viewing tag in detail for self-open buildings', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    const row = wrapper.find('.visit-row')
+    expect(row.exists()).toBe(true)
+    expect(row.text()).toContain('看房方式')
+    expect(row.find('.visit-tag').classes()).toContain('self')
+    expect(row.text()).toContain('自助看房')
+  })
+
+  it('shows escort viewing tag in detail for escort buildings', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding({ id: 3, name: 'A栋', address: 'x', selfOpenSupported: false, hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] })
+    )
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    const row = wrapper.find('.visit-row')
+    expect(row.exists()).toBe(true)
+    expect(row.find('.visit-tag').classes()).toContain('escort')
+    expect(row.text()).toContain('管家带看')
+  })
+
+  it('shows viewing tag in rented property detail too', async () => {
+    mockedGetProperty.mockResolvedValue(
+      propertyWithBuilding(
+        { id: 3, name: 'A栋', address: 'x', hasElevator: null, totalFloors: null, elevatorRatio: null, deliveryFacilities: null, livingExperience: null, media: [] },
+        'RENTED'
+      )
+    )
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    const row = wrapper.find('.visit-row')
+    expect(row.exists()).toBe(true)
+    expect(row.text()).toContain('自助看房')
+  })
+
+  it('hides viewing tag when property has no building', async () => {
+    mockedGetProperty.mockResolvedValue(propertyWithBuilding(null))
+    const { wrapper } = await mountAt(PropertyDetail, '/properties/5')
+    await flushPromises()
+    expect(wrapper.find('.visit-row').exists()).toBe(false)
   })
 })

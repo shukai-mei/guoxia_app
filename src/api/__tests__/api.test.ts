@@ -69,6 +69,19 @@ describe('tenant api', () => {
     expect(request).toBeDefined()
   })
 
+  it('listProperties parses PageResult and passes page param', async () => {
+    mock.resetHandlers()
+    mock
+      .onGet('/api/properties', { params: { page: 2 } })
+      .reply(...ok({ items: [{ id: 9, title: '阳光公寓' }], page: 2, size: 20, hasMore: false }))
+    const result = await listProperties({}, 2)
+    expect(result).toEqual({ items: [{ id: 9, title: '阳光公寓' }], page: 2, size: 20, hasMore: false })
+    const request = mock.history.get.find(
+      (r) => r.url === '/api/properties' && r.params && r.params.page === 2
+    )
+    expect(request).toBeDefined()
+  })
+
   it('getProperty GET /api/properties/{id}', async () => {
     mock.onGet('/api/properties/5').reply(...ok({ id: 5 }))
     const property = await getProperty(5)
@@ -218,6 +231,19 @@ describe('admin property api', () => {
     expect(request).toBeDefined()
   })
 
+  it('adminListProperties parses PageResult and passes page param', async () => {
+    mock.resetHandlers()
+    mock
+      .onGet('/admin/api/properties', { params: { page: 3 } })
+      .reply(...ok({ items: [{ id: 5, title: '阳光公寓' }], page: 3, size: 20, hasMore: true }))
+    const result = await adminListProperties({}, 3)
+    expect(result).toEqual({ items: [{ id: 5, title: '阳光公寓' }], page: 3, size: 20, hasMore: true })
+    const request = mock.history.get.find(
+      (r) => r.url === '/admin/api/properties' && r.params && r.params.page === 3
+    )
+    expect(request).toBeDefined()
+  })
+
   it('adminGetProperty GET /admin/api/properties/{id}', async () => {
     mock.onGet('/admin/api/properties/5').reply(...ok({ id: 5, status: 'OFF_SHELF' }))
     const property = await adminGetProperty(5)
@@ -322,6 +348,19 @@ describe('admin building api', () => {
     mock.onGet('/admin/api/buildings').reply(...ok([]))
     await adminListBuildings()
     expect(mock.history.get.some((r) => r.url === '/admin/api/buildings')).toBe(true)
+  })
+
+  it('adminListBuildings parses PageResult and passes page param', async () => {
+    mock.resetHandlers()
+    mock
+      .onGet('/admin/api/buildings', { params: { page: 2 } })
+      .reply(...ok({ items: [{ id: 3, name: 'A栋' }], page: 2, size: 20, hasMore: false }))
+    const result = await adminListBuildings(2)
+    expect(result).toEqual({ items: [{ id: 3, name: 'A栋' }], page: 2, size: 20, hasMore: false })
+    const request = mock.history.get.find(
+      (r) => r.url === '/admin/api/buildings' && r.params && r.params.page === 2
+    )
+    expect(request).toBeDefined()
   })
 
   it('adminCreateBuilding POST /admin/api/buildings with slot config and media', async () => {

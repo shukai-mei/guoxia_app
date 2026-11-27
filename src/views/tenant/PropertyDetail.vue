@@ -322,6 +322,15 @@ onMounted(async () => {
               <span class="spec-tag">{{ property.area }}㎡</span>
               <span class="spec-tag spec-tag--price">{{ property.rent }}元起/月</span>
             </div>
+            <div v-if="building" class="visit-row">
+              <span class="lab">看房方式</span>
+              <span
+                class="visit-tag"
+                :class="building.selfOpenSupported ? 'self' : 'escort'"
+              >
+                {{ building.selfOpenSupported ? '自助看房' : '管家带看' }}
+              </span>
+            </div>
             <div v-if="property.description" class="detail-description">
               {{ property.description }}
             </div>
@@ -651,6 +660,40 @@ onMounted(async () => {
   background: var(--brand-light);
   border-color: transparent;
   font-weight: 500;
+}
+
+.visit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+.visit-row .lab {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.visit-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 1px 7px;
+  line-height: 1.5;
+}
+
+.visit-tag.self {
+  color: #2d5f3f;
+  background: #eaf3ee;
+}
+
+.visit-tag.escort {
+  color: #c75e18;
+  background: var(--brand-light);
 }
 
 .detail-description {

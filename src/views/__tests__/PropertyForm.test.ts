@@ -49,7 +49,7 @@ function vmOf(wrapper: Awaited<ReturnType<typeof mountAt>>['wrapper']) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockedListBuildings.mockResolvedValue(BUILDINGS)
+  mockedListBuildings.mockResolvedValue({ items: BUILDINGS, page: 1, size: 20, hasMore: false })
 })
 
 describe('PropertyForm', () => {

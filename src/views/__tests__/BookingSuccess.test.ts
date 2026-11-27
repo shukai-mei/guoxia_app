@@ -38,6 +38,7 @@ const PROPERTY: Property = {
     elevatorRatio: null,
     deliveryFacilities: null,
     livingExperience: null,
+    selfOpenSupported: true,
     housekeeper: {
       id: 7,
       name: '王管家',

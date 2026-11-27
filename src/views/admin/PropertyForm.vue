@@ -51,8 +51,7 @@ const buildingOptions = computed(() =>
 
 onMounted(async () => {
   try {
-    const list = await adminListBuildings()
-    buildings.value = list
+    buildings.value = (await adminListBuildings()).items
     if (isEdit.value) {
       const property = await adminGetProperty(propertyId as string)
       form.value = {

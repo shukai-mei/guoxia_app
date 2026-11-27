@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showDialog, showSuccessToast, showToast } from 'vant'
+import type { ListInstance } from 'vant'
 import {
   adminListProperties,
   batchUpdatePropertyStatus,
@@ -14,10 +15,16 @@ import { errorMessageOf, isShelfDeviceBlockedError } from '../../utils/error'
 
 const router = useRouter()
 
+const listRef = ref<ListInstance | null>(null)
 const loading = ref(false)
 const loaded = ref(false)
+const finished = ref(false)
+const listError = ref(false)
 const errorText = ref('')
 const properties = ref<Property[]>([])
+const page = ref(1)
+
+let loadGeneration = 0
 
 const keyword = ref('')
 const statusFilter = ref('')
@@ -63,21 +70,58 @@ function buildParams(): {
   return params
 }
 
-async function load() {
-  loading.value = true
-  errorText.value = ''
+async function fetchPage() {
+  const generation = loadGeneration
   try {
-    properties.value = await adminListProperties(buildParams())
-    selectedIds.value = []
+    const result = await adminListProperties(buildParams(), page.value)
+    if (generation !== loadGeneration) {
+      return
+    }
+    properties.value.push(...result.items)
+    page.value += 1
+    finished.value = !result.hasMore
+    listError.value = false
     loaded.value = true
+    errorText.value = ''
   } catch (error) {
-    errorText.value = errorMessageOf(error)
+    if (generation !== loadGeneration) {
+      return
+    }
+    if (properties.value.length === 0) {
+      errorText.value = errorMessageOf(error)
+    } else {
+      listError.value = true
+      showToast(errorMessageOf(error))
+    }
   } finally {
-    loading.value = false
+    if (generation === loadGeneration) {
+      loading.value = false
+    }
   }
 }
 
-watch([keyword, statusFilter, rentStatusFilter], load)
+function onLoad() {
+  fetchPage()
+}
+
+function resetPage() {
+  loadGeneration += 1
+  properties.value = []
+  selectedIds.value = []
+  page.value = 1
+  finished.value = false
+  listError.value = false
+  errorText.value = ''
+  loaded.value = false
+  loading.value = false
+}
+
+function reload() {
+  resetPage()
+  nextTick(() => listRef.value?.check())
+}
+
+watch([keyword, statusFilter, rentStatusFilter], reload)
 
 function goCreate() {
   router.push('/admin/properties/new')
@@ -119,7 +163,7 @@ async function onBatchPublish() {
   try {
     await batchUpdatePropertyStatus(selectedIds.value, 'AVAILABLE')
     showSuccessToast('上架成功')
-    await load()
+    await reload()
   } catch (error) {
     if (error instanceof ApiError && isShelfDeviceBlockedError(error.code)) {
       showDialog({ message: error.message })
@@ -143,7 +187,7 @@ async function toggleStatus(property: Property) {
   try {
     await updatePropertyStatus(property.id, target)
     showSuccessToast(`${actionText}成功`)
-    await load()
+    await reload()
   } catch (error) {
     if (error instanceof ApiError && isShelfDeviceBlockedError(error.code)) {
       showDialog({ message: error.message })
@@ -169,7 +213,7 @@ async function toggleRentStatus(property: Property) {
   try {
     await updatePropertyRentStatus(property.id, target)
     showSuccessToast(markRented ? '已标记已租出' : '已改回待租出')
-    await load()
+    await reload()
   } catch (error) {
     showToast(errorMessageOf(error))
   }
@@ -180,8 +224,6 @@ function clearFilter() {
   statusFilter.value = ''
   rentStatusFilter.value = ''
 }
-
-onMounted(load)
 </script>
 
 <template>
@@ -198,103 +240,114 @@ onMounted(load)
 
     <div class="page">
       <div class="page-content">
-        <van-loading v-if="loading && !loaded" class="state-block" color="#1989fa">
-          加载中...
-        </van-loading>
-
-        <van-empty v-else-if="errorText" image="error" :description="errorText">
-          <van-button size="small" type="primary" @click="load">重试</van-button>
-        </van-empty>
-
-        <van-empty
-          v-else-if="loaded && properties.length === 0"
-          :description="hasFilter ? '没有符合条件的房源' : '暂无房源'"
+        <van-list
+          ref="listRef"
+          v-model:loading="loading"
+          :finished="finished"
+          :finished-text="properties.length === 0 ? '' : '没有更多了'"
+          :error="listError"
+          error-text="加载失败，点击重试"
+          @update:error="listError = $event"
+          @load="onLoad"
         >
-          <van-button v-if="hasFilter" size="small" type="primary" @click="clearFilter">
-            清除筛选
-          </van-button>
-          <van-button v-else size="small" type="primary" @click="goCreate">录入房源</van-button>
-        </van-empty>
+          <van-loading v-if="loading && !loaded" class="state-block" color="#1989fa">
+            加载中...
+          </van-loading>
 
-        <template v-else>
-          <div v-if="loaded && properties.length > 0" class="batch-bar">
-            <van-checkbox
-              :model-value="allSelected"
-              icon-size="16px"
-              @update:model-value="toggleAll"
-            >
-              全选
-            </van-checkbox>
-            <van-button
-              size="small"
-              type="primary"
-              :disabled="selectedIds.length === 0"
-              @click="onBatchPublish"
-            >
-              批量上架({{ selectedIds.length }})
+          <van-empty v-else-if="errorText" image="error" :description="errorText">
+            <van-button size="small" type="primary" @click="reload">重试</van-button>
+          </van-empty>
+
+          <van-empty
+            v-else-if="loaded && properties.length === 0"
+            :description="hasFilter ? '没有符合条件的房源' : '暂无房源'"
+          >
+            <van-button v-if="hasFilter" size="small" type="primary" @click="clearFilter">
+              清除筛选
             </van-button>
-          </div>
+            <van-button v-else size="small" type="primary" @click="goCreate">录入房源</van-button>
+          </van-empty>
 
-          <div class="property-list">
-            <div v-for="property in properties" :key="property.id" class="admin-card">
-              <div class="admin-card-header">
-                <van-checkbox
-                  :model-value="selectedIds.includes(property.id)"
-                  icon-size="16px"
-                  @update:model-value="toggleSelect(property.id)"
-                />
-                <span class="admin-card-title">{{ property.title }}</span>
-                <div class="admin-card-tags">
-                  <van-tag :type="property.status === 'AVAILABLE' ? 'success' : 'default'">
-                    {{ property.status === 'AVAILABLE' ? '上架' : '下架' }}
-                  </van-tag>
-                  <van-tag :type="property.rentStatus === 'RENTED' ? 'warning' : 'primary'">
-                    {{ property.rentStatus === 'RENTED' ? '已租出' : '待租出' }}
-                  </van-tag>
+          <template v-else>
+            <div v-if="loaded && properties.length > 0" class="batch-bar">
+              <van-checkbox
+                :model-value="allSelected"
+                icon-size="16px"
+                @update:model-value="toggleAll"
+              >
+                全选
+              </van-checkbox>
+              <van-button
+                size="small"
+                type="primary"
+                :disabled="selectedIds.length === 0"
+                @click="onBatchPublish"
+              >
+                批量上架({{ selectedIds.length }})
+              </van-button>
+            </div>
+
+            <div class="property-list">
+              <div v-for="property in properties" :key="property.id" class="admin-card">
+                <div class="admin-card-header">
+                  <van-checkbox
+                    :model-value="selectedIds.includes(property.id)"
+                    icon-size="16px"
+                    @update:model-value="toggleSelect(property.id)"
+                  />
+                  <span class="admin-card-title">{{ property.title }}</span>
+                  <div class="admin-card-tags">
+                    <van-tag :type="property.status === 'AVAILABLE' ? 'success' : 'default'">
+                      {{ property.status === 'AVAILABLE' ? '上架' : '下架' }}
+                    </van-tag>
+                    <van-tag :type="property.rentStatus === 'RENTED' ? 'warning' : 'primary'">
+                      {{ property.rentStatus === 'RENTED' ? '已租出' : '待租出' }}
+                    </van-tag>
+                  </div>
+                </div>
+                <div class="admin-card-desc">
+                  {{ property.location }} · {{ property.layout }} · {{ property.area }}㎡
+                </div>
+                <div class="admin-card-rent">¥{{ property.rent }}/月</div>
+                <div class="admin-card-actions">
+                  <van-button size="small" plain type="primary" @click="goEdit(property)">
+                    编辑
+                  </van-button>
+                  <van-button
+                    v-if="property.status === 'AVAILABLE'"
+                    size="small"
+                    plain
+                    type="warning"
+                    @click="toggleStatus(property)"
+                  >
+                    下架
+                  </van-button>
+                  <van-button v-else size="small" plain type="success" @click="toggleStatus(property)">
+                    上架
+                  </van-button>
+                  <van-button
+                    v-if="property.rentStatus === 'PENDING_RENT'"
+                    size="small"
+                    plain
+                    type="warning"
+                    @click="toggleRentStatus(property)"
+                  >
+                    标记已租出
+                  </van-button>
+                  <van-button
+                    v-else
+                    size="small"
+                    plain
+                    type="success"
+                    @click="toggleRentStatus(property)"
+                  >
+                    改回待租出
+                  </van-button>
                 </div>
               </div>
-              <div class="admin-card-desc">
-                {{ property.location }} · {{ property.layout }} · {{ property.area }}㎡
-              </div>
-              <div class="admin-card-rent">¥{{ property.rent }}/月</div>
-              <div class="admin-card-actions">
-                <van-button size="small" plain type="primary" @click="goEdit(property)">
-                  编辑
-                </van-button>
-                <van-button
-                  v-if="property.status === 'AVAILABLE'"
-                  size="small"
-                  plain
-                  type="warning"
-                  @click="toggleStatus(property)"
-                >
-                  下架
-                </van-button>
-                <van-button v-else size="small" plain type="success" @click="toggleStatus(property)">
-                  上架
-                </van-button>
-                <van-button
-                  v-if="property.rentStatus === 'PENDING_RENT'"
-                  size="small"
-                  plain
-                  type="warning"
-                  @click="toggleRentStatus(property)"
-                >
-                  标记已租出
-                </van-button>
-                <van-button
-                  v-else
-                  size="small"
-                  plain
-                  type="success"
-                  @click="toggleRentStatus(property)"
-                >
-                  改回待租出
-                </van-button>
-              </div>
             </div>
-          </div>
-        </template>
+          </template>
+        </van-list>
       </div>
     </div>
   </div>

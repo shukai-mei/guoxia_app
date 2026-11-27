@@ -46,7 +46,7 @@ const PROPERTIES: Property[] = [
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockedList.mockResolvedValue(PROPERTIES)
+  mockedList.mockResolvedValue({ items: PROPERTIES, page: 1, size: 20, hasMore: false })
   mockedStatus.mockResolvedValue({ propertyId: 5, date: expect.any(String) as unknown as string, passwordSet: false })
 })
 
