@@ -30,6 +30,21 @@ beforeEach(() => {
 })
 
 describe('Consultation', () => {
+  it('renders AI agent teaser section', async () => {
+    mockedFaq.mockResolvedValue(FAQ)
+    const wrapper = await mountComponent()
+    const teaser = wrapper.find('.ai-teaser')
+    expect(teaser.exists()).toBe(true)
+    expect(teaser.text()).toContain('即将上线 · AI 管家')
+    expect(teaser.text()).toContain('智能管家小悦')
+    expect(teaser.text()).toContain('AI Agent · 7×24 小时在线解答')
+    expect(teaser.findAll('.ai-feat').map(f => f.text())).toEqual(['看房咨询', '房源推荐'])
+    const cta = teaser.find('.ai-cta')
+    expect(cta.exists()).toBe(true)
+    expect(cta.classes()).toContain('disabled')
+    expect(cta.text()).toContain('敬请期待')
+  })
+
   it('renders faq cards with first expanded by default', async () => {
     mockedFaq.mockResolvedValue(FAQ)
     const wrapper = await mountComponent()

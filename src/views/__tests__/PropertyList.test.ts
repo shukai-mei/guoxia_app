@@ -212,4 +212,44 @@ describe('PropertyList', () => {
     expect(mockedList).toHaveBeenNthCalledWith(1, {}, 1)
     expect(mockedList).toHaveBeenNthCalledWith(2, {}, 2)
   })
+
+  it('shows onboarding guide card when all pages are loaded', async () => {
+    mockedList.mockResolvedValue(pageResult([propertyOf(1, '阳光公寓')]))
+    const { wrapper } = await mountAt(PropertyList, '/')
+    await flushPromises()
+    const foot = wrapper.find('.list-foot')
+    expect(foot.exists()).toBe(true)
+    expect(foot.text()).toContain('更多房源持续接入中')
+    expect(foot.text()).toContain('初版房源较少，管家正在持续录入，敬请期待更多优质房源')
+    expect(wrapper.text()).not.toContain('没有更多了')
+  })
+
+  it('shows guide card only after the last page finishes', async () => {
+    mockedList
+      .mockResolvedValueOnce(pageResult([propertyOf(1, '阳光公寓')], true))
+      .mockResolvedValueOnce(pageResult([propertyOf(2, '幸福里')]))
+    const { wrapper } = await mountAt(PropertyList, '/')
+    await flushPromises()
+    const foot = wrapper.find('.list-foot')
+    expect(foot.exists()).toBe(true)
+    expect(wrapper.findAll('.property-card').length).toBe(2)
+  })
+
+  it('hides guide card when a page fails to load', async () => {
+    mockedList
+      .mockResolvedValueOnce(pageResult([propertyOf(1, '阳光公寓')], true))
+      .mockRejectedValueOnce(new Error('网络异常，请稍后重试'))
+    const { wrapper } = await mountAt(PropertyList, '/')
+    await flushPromises()
+    expect(wrapper.find('.list-foot').exists()).toBe(false)
+    expect(wrapper.text()).toContain('加载失败，点击重试')
+  })
+
+  it('hides guide card when the finished list is empty', async () => {
+    mockedList.mockResolvedValue(pageResult([]))
+    const { wrapper } = await mountAt(PropertyList, '/')
+    await flushPromises()
+    expect(wrapper.text()).toContain('暂无在租房源')
+    expect(wrapper.find('.list-foot').exists()).toBe(false)
+  })
 })

@@ -187,7 +187,7 @@ function openDetail(property: Property) {
             ref="listRef"
             v-model:loading="loading"
             :finished="finished"
-            :finished-text="properties.length === 0 ? '' : '没有更多了'"
+            finished-text=""
             :error="listError"
             error-text="加载失败，点击重试"
             @update:error="listError = $event"
@@ -268,6 +268,25 @@ function openDetail(property: Property) {
                     <span class="rent-unit">/月</span>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div v-if="finished && properties.length > 0" class="list-foot">
+              <div class="fi">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
+                </svg>
+              </div>
+              <div class="ft">
+                <div class="t">更多房源持续接入中</div>
+                <div class="s">初版房源较少，管家正在持续录入，敬请期待更多优质房源</div>
               </div>
             </div>
           </van-list>
@@ -481,5 +500,51 @@ function openDetail(property: Property) {
   font-weight: 400;
   color: var(--muted);
   margin-left: 2px;
+}
+
+.list-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 0.5px dashed var(--line2);
+  border-radius: 14px;
+  padding: 14px;
+  margin-top: 4px;
+}
+
+.list-foot .fi {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--brand-light);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.list-foot .fi svg {
+  width: 18px;
+  height: 18px;
+}
+
+.list-foot .ft {
+  flex: 1;
+  min-width: 0;
+}
+
+.list-foot .ft .t {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.list-foot .ft .s {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 3px;
+  line-height: 1.5;
 }
 </style>
